@@ -2,13 +2,13 @@ chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
   const mimeType = downloadItem.mime || "";
   let folder = "Autres";
 
-  if (mimeType.mime.startsWith("image/")) {
+  if (mimeType.startsWith("image/")) {
     folder = "Images";
-  } else if (mimeType.mime.startsWith("video/")) {
+  } else if (mimeType.startsWith("video/")) {
     folder = "Vidéos";
-  } else if (mimeType.mime.startsWith("audio/")) {
+  } else if (mimeType.startsWith("audio/")) {
     folder = "Audios";
-  } else if (mimeType.mime.startsWith("application/")) {
+  } else if (mimeType.startsWith("application/")) {
     folder = "Documents";
   } else {
     const extension = downloadItem.filename.split(".").pop().toLowerCase();
