@@ -10,3 +10,14 @@ Files will be sorted into sub-folders under the default download folder.
 
 ## Installation
 
+1. Clone the repository
+2. Extract the contents
+
+### Install extension in Chrome
+
+1. Open Chrome
+1. Go to `chrome://extensions/`
+2. Enable `Developer mode`
+3. Click on `Load unpacked`
+4. Select the `download-organizer` folder
+5. The extension should be installed
