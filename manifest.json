@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Download Organization",
+  "version": "1.0",
+  "description": "Organize your downloads",
+  "permissions": [
+    "downloads",
+    "downloads.shelf"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "persistent": false
+  },
+  "action": {
+    "default_title": "Download Organization"
+  }
+}
