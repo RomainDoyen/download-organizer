@@ -1,4 +1,4 @@
-chrome.downloads.onDeterminingFilename.addEventListener((downloadItem, suggest) => {
+chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
   let folder = "Autres";
 
   if (downloadItem.mime.startsWith("image/")) {
