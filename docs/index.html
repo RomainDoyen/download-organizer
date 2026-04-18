@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Download Organization — Documentation</title>
+    <meta
+      name="description"
+      content="Extension navigateur : classement automatique des téléchargements par type de fichier."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#contenu">Aller au contenu</a>
+
+    <header class="site-header">
+      <div class="wrap site-header__inner">
+        <a class="brand" href="#">
+          <span class="brand__mark" aria-hidden="true">↓</span>
+          <span class="brand__text">Download Organization</span>
+        </a>
+        <nav class="nav" aria-label="Sommaire">
+          <button type="button" class="nav__toggle" aria-expanded="false" aria-controls="nav-menu">
+            Menu
+          </button>
+          <ul id="nav-menu" class="nav__list">
+            <li><a href="#fonctionnement">Fonctionnement</a></li>
+            <li><a href="#installation">Installation</a></li>
+            <li><a href="#developpement">Développement</a></li>
+            <li><a href="#plateformes">Plateformes</a></li>
+          </ul>
+        </nav>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Basculer thème clair ou sombre">
+          <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">☀</span>
+          <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">☽</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="contenu">
+      <section class="hero">
+        <div class="wrap hero__inner">
+          <p class="hero__kicker">Extension · Chrome · Edge · Firefox</p>
+          <h1 class="hero__title">Des téléchargements rangés sans y penser</h1>
+          <p class="hero__lead">
+            Chaque fichier est enregistré dans un sous-dossier du répertoire de téléchargement par défaut
+            — <strong>Images</strong>, <strong>Vidéos</strong>, <strong>Audios</strong>,
+            <strong>Documents</strong> ou <strong>Autres</strong> — selon le type MIME et l’extension.
+          </p>
+          <div class="hero__actions">
+            <a class="btn btn--primary" href="#installation">Installer</a>
+            <a class="btn btn--ghost" href="#fonctionnement">Comment ça marche</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="fonctionnement" class="section">
+        <div class="wrap">
+          <h2 class="section__title">Fonctionnement</h2>
+          <div class="prose">
+            <p>
+              L’extension s’exécute en arrière-plan et intervient au moment où le navigateur choisit le nom du
+              fichier : le chemin proposé devient
+              <code class="inline">NomDuDossier/nom-du-fichier.ext</code>, toujours relatif au dossier de
+              téléchargement configuré dans le navigateur.
+            </p>
+            <p>
+              La catégorisation combine le type MIME (quand il est disponible) et, à défaut, l’extension du
+              fichier pour les cas ambigus.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="installation" class="section section--alt">
+        <div class="wrap">
+          <h2 class="section__title">Installation (mode développeur)</h2>
+          <div class="prose">
+            <p>
+              Après avoir cloné le dépôt et lancé le build (voir la section Développement), chargez le dossier
+              de sortie de l’extension :
+            </p>
+            <ul class="list">
+              <li>
+                <strong>Chrome :</strong> <code class="inline">chrome://extensions</code> → Mode développeur →
+                Charger l’extension non empaquetée → dossier <code class="inline">.output/chrome-mv3</code>
+              </li>
+              <li>
+                <strong>Edge :</strong> <code class="inline">edge://extensions</code> → Charger l’extension non
+                empaquetée → dossier <code class="inline">.output/edge-mv3</code>
+              </li>
+              <li>
+                <strong>Firefox :</strong> <code class="inline">about:debugging</code> → Chargement temporaire
+                d’extensions → dossier <code class="inline">.output/firefox-mv2</code>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="developpement" class="section">
+        <div class="wrap">
+          <h2 class="section__title">Développement</h2>
+          <p class="prose">
+            Le projet utilise <a href="https://wxt.dev" rel="noopener noreferrer">WXT</a>. Commandes utiles :
+          </p>
+          <div class="code-block">
+            <pre><code>npm install
+npm run dev</code></pre>
+          </div>
+          <p class="prose muted">
+            Builds ciblés : <code class="inline">npm run build</code>,
+            <code class="inline">npm run build:firefox</code>,
+            <code class="inline">npm run build:edge</code>
+          </p>
+        </div>
+      </section>
+
+      <section id="plateformes" class="section section--alt">
+        <div class="wrap">
+          <h2 class="section__title">Systèmes d’exploitation</h2>
+          <div class="prose">
+            <p>
+              L’extension suit le navigateur : sur <strong>Windows</strong>, <strong>macOS</strong> et
+              <strong>Linux</strong>, le même paquet fonctionne dès que Chrome, Edge ou Firefox est
+              installé. Le développement (Node.js, WXT) est également multiplateforme.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap site-footer__inner">
+        <p>Documentation Download Organization — HTML, CSS, JS statiques.</p>
+      </div>
+    </footer>
+
+    <script src="main.js" type="module"></script>
+  </body>
+</html>

@@ -1,23 +1,47 @@
 # Download Organization
 
-This extension allows you to organize your downloads by moving them to specific folders based on the file type.
+Extension navigateur qui classe automatiquement les fichiers téléchargés dans des sous-dossiers du répertoire de téléchargement par défaut (Images, Vidéos, Audios, Documents, Autres), selon le type MIME et l’extension.
 
-## Features
+Compatible **Chrome**, **Edge** et **Firefox** (builds distincts via [WXT](https://wxt.dev)).
 
-This extension sorts files by MIME type only. You can extend the script to include other criteria such as file names or keywords.
+## Prérequis
 
-Files will be sorted into sub-folders under the default download folder.
+- [Node.js](https://nodejs.org/) 18+ (recommandé : LTS)
 
-## Installation
+## Développement
 
-1. Clone the repository
-2. Extract the contents
+```bash
+npm install
+npm run dev
+```
 
-### Install extension in Chrome
+Chargez le dossier généré (voir la sortie du terminal, en général `.output/chrome-mv3`) via « Charger l’extension non empaquetée » dans `chrome://extensions` (ou équivalent Edge / Firefox).
 
-1. Open Chrome
-1. Go to `chrome://extensions/`
-2. Enable `Developer mode`
-3. Click on `Load unpacked`
-4. Select the `download-organizer` folder
-5. The extension should be installed
+- `npm run dev:firefox` — prévisualisation Firefox  
+- `npm run dev:edge` — prévisualisation Edge  
+
+## Build
+
+```bash
+npm run build              # Chrome (MV3)
+npm run build:edge         # Edge
+npm run build:firefox      # Firefox
+```
+
+Les artefacts se trouvent sous `.output/<navigateur>/`.
+
+## Archives pour les stores
+
+```bash
+npm run zip
+npm run zip:edge
+npm run zip:firefox
+```
+
+## Documentation (site statique)
+
+Une documentation utilisateur en HTML/CSS/JS se trouve dans le dossier [`docs/`](./docs/). Ouvrez `docs/index.html` dans le navigateur ou servez le dossier avec n’importe quel serveur HTTP statique.
+
+## Licence
+
+Voir le dépôt pour les conditions d’utilisation.
