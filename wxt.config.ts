@@ -31,8 +31,20 @@ export default defineConfig({
         ? ['downloads', 'storage']
         : ['downloads', 'downloads.shelf', 'storage'],
     host_permissions: ['<all_urls>'],
+    icons: {
+      16: 'logo.png',
+      32: 'logo.png',
+      48: 'logo.png',
+      96: 'logo.png',
+      128: 'logo.png',
+    },
     action: {
       default_title: 'Download Organization',
+      default_icon: {
+        16: 'logo.png',
+        32: 'logo.png',
+        48: 'logo.png',
+      },
     },
   }),
   webExt: chromiumBinary

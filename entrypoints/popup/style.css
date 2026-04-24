@@ -61,19 +61,15 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.hero__mark {
+.hero__logo {
   flex-shrink: 0;
   width: 40px;
   height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 12px;
-  background: var(--teal-muted);
-  color: var(--teal);
-  font-size: 1.15rem;
-  font-weight: 700;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  object-fit: cover;
+  box-shadow:
+    0 2px 8px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .hero__text {

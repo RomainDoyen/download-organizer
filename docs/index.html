@@ -16,6 +16,8 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/png" href="assets/logo.png" />
+    <link rel="apple-touch-icon" href="assets/logo.png" />
   </head>
   <body>
     <a class="skip-link" href="#contenu">Aller au contenu</a>
@@ -23,7 +25,14 @@
     <header class="site-header">
       <div class="wrap wrap--wide site-header__inner">
         <a class="brand" href="#">
-          <span class="brand__mark" aria-hidden="true">↓</span>
+          <img
+            class="brand__logo"
+            src="assets/logo.png"
+            width="36"
+            height="36"
+            alt=""
+            decoding="async"
+          />
           <span class="brand__text">Download Organization</span>
         </a>
         <nav class="nav" aria-label="Sommaire">
@@ -48,6 +57,16 @@
     <main id="contenu">
       <section class="hero">
         <div class="wrap hero__inner">
+          <div class="hero__visual" aria-hidden="true">
+            <img
+              class="hero__logo"
+              src="assets/logo.png"
+              width="112"
+              height="112"
+              alt=""
+              decoding="async"
+            />
+          </div>
           <p class="hero__kicker">Extension · Chrome · Edge · Firefox</p>
           <h1 class="hero__title">Des téléchargements rangés sans y penser</h1>
           <p class="hero__lead">

@@ -4,6 +4,8 @@ Extension navigateur qui classe automatiquement les fichiers téléchargés dans
 
 Compatible **Chrome**, **Edge** et **Firefox** (builds distincts via [WXT](https://wxt.dev)).
 
+**Logo** : déposez votre `logo.png` (carré recommandé, ex. 128×128) dans [`public/logo.png`](./public/logo.png) pour l’extension (barre d’outils, popup, manifeste) et une copie dans [`docs/assets/logo.png`](./docs/assets/logo.png) pour le site de documentation.
+
 ## Prérequis
 
 - [Node.js](https://nodejs.org/) 18+ (recommandé : LTS)

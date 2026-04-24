@@ -123,16 +123,12 @@ body {
   text-decoration: none;
 }
 
-.brand__mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
+.brand__logo {
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 1.1rem;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
 }
 
 .nav {
@@ -259,6 +255,20 @@ body {
 
 .hero__inner {
   text-align: center;
+}
+
+.hero__visual {
+  margin: 0 auto 1.25rem;
+  max-width: 7rem;
+}
+
+.hero__logo {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 1.25rem;
+  object-fit: cover;
+  box-shadow: var(--shadow);
 }
 
 .hero__kicker {
