@@ -21,7 +21,7 @@
     <a class="skip-link" href="#contenu">Aller au contenu</a>
 
     <header class="site-header">
-      <div class="wrap site-header__inner">
+      <div class="wrap wrap--wide site-header__inner">
         <a class="brand" href="#">
           <span class="brand__mark" aria-hidden="true">↓</span>
           <span class="brand__text">Download Organization</span>
@@ -32,6 +32,7 @@
           </button>
           <ul id="nav-menu" class="nav__list">
             <li><a href="#fonctionnement">Fonctionnement</a></li>
+            <li><a href="#build">Build</a></li>
             <li><a href="#installation">Installation</a></li>
             <li><a href="#developpement">Développement</a></li>
             <li><a href="#plateformes">Plateformes</a></li>
@@ -55,7 +56,7 @@
             <strong>Documents</strong> ou <strong>Autres</strong> — selon le type MIME et l’extension.
           </p>
           <div class="hero__actions">
-            <a class="btn btn--primary" href="#installation">Installer</a>
+            <a class="btn btn--primary" href="#build">Build puis installation</a>
             <a class="btn btn--ghost" href="#fonctionnement">Comment ça marche</a>
           </div>
         </div>
@@ -79,46 +80,108 @@
         </div>
       </section>
 
-      <section id="installation" class="section section--alt">
+      <section id="build" class="section section--alt">
+        <div class="wrap">
+          <h2 class="section__title">Build par navigateur</h2>
+          <p class="prose">
+            À la racine du dépôt (après <code class="inline">git clone</code>), installez les dépendances une
+            fois :
+          </p>
+          <div class="code-block">
+            <pre><code>cd download-organizer
+npm install</code></pre>
+          </div>
+          <p class="prose">
+            Ensuite, lancez <strong>exactement une</strong> des commandes ci-dessous selon le navigateur cible.
+            WXT écrit le paquet prêt à charger dans <code class="inline">.output/</code> (chemins relatifs à la
+            racine du projet).
+          </p>
+
+          <h3 class="subsection__title">Chrome (MV3, cible par défaut)</h3>
+          <div class="code-block">
+            <pre><code>npm run build</code></pre>
+          </div>
+          <p class="prose build-out">
+            Dossier à charger : <code class="inline">.output/chrome-mv3/</code>
+          </p>
+
+          <h3 class="subsection__title">Microsoft Edge (MV3)</h3>
+          <div class="code-block">
+            <pre><code>npm run build:edge</code></pre>
+          </div>
+          <p class="prose build-out">
+            Dossier à charger : <code class="inline">.output/edge-mv3/</code>
+          </p>
+
+          <h3 class="subsection__title">Firefox (MV2)</h3>
+          <div class="code-block">
+            <pre><code>npm run build:firefox</code></pre>
+          </div>
+          <p class="prose build-out">
+            Dossier à charger : <code class="inline">.output/firefox-mv2/</code>
+          </p>
+
+          <h3 class="subsection__title">Archives pour publication (optionnel)</h3>
+          <p class="prose">
+            Pour générer un fichier <code class="inline">.zip</code> prêt à envoyer aux stores ou à partager :
+          </p>
+          <div class="code-block">
+            <pre><code>npm run zip              # Chrome (équivalent au build par défaut)
+npm run zip:edge
+npm run zip:firefox</code></pre>
+          </div>
+          <p class="prose muted">
+            Les archives sont créées sous <code class="inline">.output/</code> (noms fournis par WXT dans le
+            terminal).
+          </p>
+        </div>
+      </section>
+
+      <section id="installation" class="section">
         <div class="wrap">
           <h2 class="section__title">Installation (mode développeur)</h2>
           <div class="prose">
             <p>
-              Après avoir cloné le dépôt et lancé le build (voir la section Développement), chargez le dossier
-              de sortie de l’extension :
+              Après le <a href="#build">build</a> correspondant à votre navigateur, chargez le dossier de sortie
+              indiqué ci-dessus (pas la racine du dépôt Git).
             </p>
             <ul class="list">
               <li>
                 <strong>Chrome :</strong> <code class="inline">chrome://extensions</code> → Mode développeur →
-                Charger l’extension non empaquetée → dossier <code class="inline">.output/chrome-mv3</code>
+                Charger l’extension non empaquetée → sélectionner
+                <code class="inline">.output/chrome-mv3</code>
               </li>
               <li>
-                <strong>Edge :</strong> <code class="inline">edge://extensions</code> → Charger l’extension non
-                empaquetée → dossier <code class="inline">.output/edge-mv3</code>
+                <strong>Edge :</strong> <code class="inline">edge://extensions</code> → Mode développeur →
+                Charger l’extension non empaquetée → sélectionner
+                <code class="inline">.output/edge-mv3</code>
               </li>
               <li>
-                <strong>Firefox :</strong> <code class="inline">about:debugging</code> → Chargement temporaire
-                d’extensions → dossier <code class="inline">.output/firefox-mv2</code>
+                <strong>Firefox :</strong> <code class="inline">about:debugging#/runtime/this-firefox</code> →
+                Charger une extension temporaire → choisir le fichier
+                <code class="inline">manifest.json</code> à l’intérieur de
+                <code class="inline">.output/firefox-mv2/</code>
               </li>
             </ul>
           </div>
         </div>
       </section>
 
-      <section id="developpement" class="section">
+      <section id="developpement" class="section section--alt">
         <div class="wrap">
-          <h2 class="section__title">Développement</h2>
+          <h2 class="section__title">Développement (rechargement à chaud)</h2>
           <p class="prose">
-            Le projet utilise <a href="https://wxt.dev" rel="noopener noreferrer">WXT</a>. Commandes utiles :
+            Le projet utilise <a href="https://wxt.dev" rel="noopener noreferrer">WXT</a>. En continu, sans
+            relancer <code class="inline">npm run build</code> à la main :
           </p>
           <div class="code-block">
             <pre><code>npm install
 npm run dev</code></pre>
           </div>
           <p class="prose muted">
-            Builds ciblés : <code class="inline">npm run build</code>,
-            <code class="inline">npm run build:firefox</code>,
-            <code class="inline">npm run build:edge</code>
+            Chargez le dossier affiché dans le terminal (souvent <code class="inline">.output/chrome-mv3</code> en
+            dev). Variantes : <code class="inline">npm run dev:firefox</code>,
+            <code class="inline">npm run dev:edge</code>.
           </p>
         </div>
       </section>
