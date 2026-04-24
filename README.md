@@ -1,5 +1,14 @@
 # Download Organization
 
+<p align="center">
+  <img
+    src="./public/logo.png"
+    alt="Logo Download Organization"
+    width="128"
+    style="border-radius: 28px;"
+  />
+</p>
+
 Extension navigateur qui classe automatiquement les fichiers téléchargés dans des sous-dossiers du répertoire de téléchargement par défaut (Images, Vidéos, Audios, Documents, Autres), selon le type MIME et l’extension.
 
 Compatible **Chrome**, **Edge** et **Firefox** (builds distincts via [WXT](https://wxt.dev)).
