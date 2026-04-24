@@ -76,6 +76,14 @@
               La catégorisation combine le type MIME (quand il est disponible) et, à défaut, l’extension du
               fichier pour les cas ambigus.
             </p>
+            <p>
+              <strong>Firefox :</strong> ce navigateur ne propose pas l’API
+              <code class="inline">onDeterminingFilename</code> (réservée à Chromium). L’extension annule le
+              premier téléchargement puis en relance un avec le même URL et le chemin cible — le résultat est
+              le même, mais vous pouvez voir une entrée annulée brièvement dans le gestionnaire de
+              téléchargements. Les liens <code class="inline">blob:</code> ou <code class="inline">data:</code>
+              ne sont pas réécrits (limitation technique).
+            </p>
           </div>
         </div>
       </section>
