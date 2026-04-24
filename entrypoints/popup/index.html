@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Download Organization</title>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div class="hero__mark" aria-hidden="true">↓</div>
+        <div class="hero__text">
+          <p class="hero__eyebrow">Extension</p>
+          <h1 class="hero__title">Download Organization</h1>
+        </div>
+      </header>
+
+      <div class="status" id="status-banner" role="status" aria-live="polite">
+        <span class="status__dot" id="status-dot" aria-hidden="true"></span>
+        <div class="status__copy">
+          <strong class="status__label" id="status-label">Classement automatique</strong>
+          <p class="status__detail" id="status-detail"></p>
+        </div>
+      </div>
+
+      <section class="card" aria-labelledby="toggle-heading">
+        <h2 class="sr-only" id="toggle-heading">Activer ou désactiver le classement</h2>
+        <label class="toggle-row">
+          <span class="toggle-row__text">
+            <span class="toggle-row__title">Ranger chaque téléchargement</span>
+            <span class="toggle-row__desc">
+              Sous-dossiers du dossier « Téléchargements » du navigateur (Images, Vidéos, etc.).
+            </span>
+          </span>
+          <span class="switch" title="Activer ou désactiver">
+            <input type="checkbox" id="sort-enabled" aria-describedby="folders-hint" />
+            <span class="switch__ui" aria-hidden="true">
+              <span class="switch__knob"></span>
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section class="folders" id="folders-hint" aria-label="Dossiers utilisés quand le classement est actif">
+        <p class="folders__title">Quand c’est activé, les fichiers vont ici :</p>
+        <ul class="folders__list">
+          <li><span class="folders__tag">Images</span> photos, captures…</li>
+          <li><span class="folders__tag">Vidéos</span> mp4, webm…</li>
+          <li><span class="folders__tag">Audios</span> mp3, ogg…</li>
+          <li><span class="folders__tag">Documents</span> PDF, Office…</li>
+          <li><span class="folders__tag">Autres</span> le reste</li>
+        </ul>
+      </section>
+
+      <p class="footnote">
+        Ce réglage est enregistré sur cet appareil. Désactivé : même dossier de téléchargement qu’à
+        l’habitude, sans sous-dossiers créés par l’extension.
+      </p>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

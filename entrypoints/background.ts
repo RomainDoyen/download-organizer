@@ -1,4 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
+import { isSortingEnabled, SORT_ENABLED_KEY, syncActionBadge } from '@/lib/sorting-settings';
 
 type DownloadItem = Browser.downloads.DownloadItem;
 
@@ -85,17 +86,18 @@ function shouldIgnoreFirefoxDownload(item: DownloadItem): boolean {
 
 function registerFirefoxDownloadSorter(): void {
   browser.downloads.onCreated.addListener((item) => {
-    if (shouldIgnoreFirefoxDownload(item)) return;
-    if (isAlreadyUnderSortFolder(item.filename)) return;
-
-    const folder = resolveSortFolder(item);
-    const base = guessBasenameForDownload(item);
-    const relativePath = `${folder}/${base}`;
-
-    const sourceUrl =
-      typeof item.finalUrl === 'string' && item.finalUrl.length > 0 ? item.finalUrl : item.url;
-
     void (async () => {
+      if (!(await isSortingEnabled())) return;
+      if (shouldIgnoreFirefoxDownload(item)) return;
+      if (isAlreadyUnderSortFolder(item.filename)) return;
+
+      const folder = resolveSortFolder(item);
+      const base = guessBasenameForDownload(item);
+      const relativePath = `${folder}/${base}`;
+
+      const sourceUrl =
+        typeof item.finalUrl === 'string' && item.finalUrl.length > 0 ? item.finalUrl : item.url;
+
       try {
         await browser.downloads.cancel(item.id);
       } catch {
@@ -118,38 +120,62 @@ function registerFirefoxDownloadSorter(): void {
 
 function registerChromiumDownloadSorter(): void {
   browser.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
-    const mimeType = downloadItem.mime ?? '';
-    let folder = 'Autres';
+    void (async () => {
+      try {
+        if (!(await isSortingEnabled())) {
+          suggest();
+          return;
+        }
 
-    if (mimeType.startsWith('image/')) {
-      folder = 'Images';
-    } else if (mimeType.startsWith('video/')) {
-      folder = 'Vidéos';
-    } else if (mimeType.startsWith('audio/')) {
-      folder = 'Audios';
-    } else if (mimeType.startsWith('application/')) {
-      folder = 'Documents';
-    } else {
-      const base = downloadItem.filename.split(/[/\\]/).pop() ?? downloadItem.filename;
-      const extension = base.split('.').pop()?.toLowerCase() ?? '';
+        const mimeType = downloadItem.mime ?? '';
+        let folder = 'Autres';
 
-      if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(extension)) {
-        folder = 'Images';
-      } else if (['mp4', 'avi', 'mkv', 'webm', 'mov'].includes(extension)) {
-        folder = 'Vidéos';
-      } else if (['mp3', 'wav', 'aac', 'flac', 'ogg'].includes(extension)) {
-        folder = 'Audios';
-      } else if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)) {
-        folder = 'Documents';
+        if (mimeType.startsWith('image/')) {
+          folder = 'Images';
+        } else if (mimeType.startsWith('video/')) {
+          folder = 'Vidéos';
+        } else if (mimeType.startsWith('audio/')) {
+          folder = 'Audios';
+        } else if (mimeType.startsWith('application/')) {
+          folder = 'Documents';
+        } else {
+          const base = downloadItem.filename.split(/[/\\]/).pop() ?? downloadItem.filename;
+          const extension = base.split('.').pop()?.toLowerCase() ?? '';
+
+          if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(extension)) {
+            folder = 'Images';
+          } else if (['mp4', 'avi', 'mkv', 'webm', 'mov'].includes(extension)) {
+            folder = 'Vidéos';
+          } else if (['mp3', 'wav', 'aac', 'flac', 'ogg'].includes(extension)) {
+            folder = 'Audios';
+          } else if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)) {
+            folder = 'Documents';
+          }
+        }
+
+        const newFilename = `${folder}/${downloadItem.filename}`;
+        suggest({ filename: newFilename });
+      } catch {
+        suggest();
       }
-    }
-
-    const newFilename = `${folder}/${downloadItem.filename}`;
-    suggest({ filename: newFilename });
+    })();
+    return true;
   });
 }
 
+async function refreshBadgeFromStorage(): Promise<void> {
+  syncActionBadge(await isSortingEnabled());
+}
+
 export default defineBackground(() => {
+  void refreshBadgeFromStorage();
+
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes[SORT_ENABLED_KEY]) return;
+    const v = changes[SORT_ENABLED_KEY].newValue;
+    syncActionBadge(v !== false);
+  });
+
   if (import.meta.env.FIREFOX) {
     registerFirefoxDownloadSorter();
   } else {

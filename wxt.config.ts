@@ -28,8 +28,8 @@ export default defineConfig({
     description: 'Classez automatiquement vos téléchargements par type de fichier.',
     permissions:
       browser === 'firefox'
-        ? ['downloads']
-        : ['downloads', 'downloads.shelf'],
+        ? ['downloads', 'storage']
+        : ['downloads', 'downloads.shelf', 'storage'],
     host_permissions: ['<all_urls>'],
     action: {
       default_title: 'Download Organization',
