@@ -286,6 +286,39 @@ body {
   background: var(--teal-soft);
 }
 
+.open-panel {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 14px 16px 0;
+  padding: 11px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--teal);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+}
+
+.open-panel:hover {
+  background: var(--teal-hover);
+}
+
+.open-panel:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.open-panel__hint {
+  margin: 6px 18px 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .footnote {
   margin: 14px 18px 0;
   font-size: 11px;

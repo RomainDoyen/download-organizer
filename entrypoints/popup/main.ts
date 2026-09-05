@@ -1,4 +1,5 @@
 import './style.css';
+import { browser } from 'wxt/browser';
 import {
   isSortingEnabled,
   setSortingEnabled,
@@ -43,6 +44,21 @@ async function init(): Promise<void> {
     await setSortingEnabled(enabled);
     syncActionBadge(enabled);
     applySortState(enabled);
+  });
+
+  const openBtn = document.getElementById('open-organizer');
+  openBtn?.addEventListener('click', async () => {
+    try {
+      if (import.meta.env.FIREFOX) {
+        await browser.sidebarAction.open();
+        return;
+      }
+      const win = await browser.windows.getCurrent();
+      if (win.id == null) return;
+      await browser.sidePanel.open({ windowId: win.id });
+    } catch (err) {
+      console.error('[organizer] Impossible d’ouvrir le panneau', err);
+    }
   });
 }
 

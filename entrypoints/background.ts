@@ -1,9 +1,8 @@
 import { browser, type Browser } from 'wxt/browser';
-import { isSortingEnabled, SORT_ENABLED_KEY, syncActionBadge } from '@/lib/sorting-settings';
+import { isAlreadyUnderSortFolder, shouldPreserveSuggestedFilename } from '@/lib/organizer-logic';
+import { getArchiveFolder, isSortingEnabled, SORT_ENABLED_KEY, syncActionBadge } from '@/lib/sorting-settings';
 
 type DownloadItem = Browser.downloads.DownloadItem;
-
-const SORT_FOLDERS = new Set(['Images', 'Vidéos', 'Audios', 'Documents', 'Autres']);
 
 function fileBasename(path: string): string {
   const normalized = path.replace(/\\/g, '/');
@@ -39,14 +38,6 @@ function resolveSortFolder(item: DownloadItem): string {
   }
 
   return folder;
-}
-
-/** Le fichier est déjà sous Images/, Vidéos/, etc. (évite boucle après notre propre download). */
-function isAlreadyUnderSortFolder(filename: string): boolean {
-  if (!filename) return false;
-  const parts = filename.replace(/\\/g, '/').split('/').filter(Boolean);
-  if (parts.length < 2) return false;
-  return SORT_FOLDERS.has(parts[parts.length - 2]!);
 }
 
 function guessBasenameForDownload(item: DownloadItem): string {
@@ -123,6 +114,18 @@ function registerChromiumDownloadSorter(): void {
     void (async () => {
       try {
         if (!(await isSortingEnabled())) {
+          suggest();
+          return;
+        }
+
+        const archiveFolder = await getArchiveFolder();
+        if (
+          shouldPreserveSuggestedFilename({
+            byExtensionId: downloadItem.byExtensionId,
+            filename: downloadItem.filename,
+            archiveFolder,
+          })
+        ) {
           suggest();
           return;
         }

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Organisateur de téléchargements</title>
+  </head>
+  <body>
+    <div class="shell" id="shell">
+      <header class="header">
+        <div class="header__left">
+          <img class="header__logo" src="logo.png" width="28" height="28" alt="" decoding="async" />
+          <h1 class="header__title">Organisateur</h1>
+        </div>
+        <div class="header__right">
+          <span class="counter" id="file-count" aria-live="polite">0 fichiers</span>
+          <button class="btn btn--secondary" id="refresh-btn" aria-label="Actualiser la liste">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
+          <button class="btn btn--secondary" id="settings-btn" aria-label="Paramètres">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="toolbar" role="toolbar" aria-label="Filtres et tri">
+        <div class="toolbar__group">
+          <div class="select-wrap" id="sort-select-wrap" data-value="date-desc">
+            <button type="button" class="select-trigger" id="sort-select" aria-haspopup="listbox" aria-expanded="false" aria-label="Trier par">
+              <span class="select-trigger__label">Date ↓ (récent d'abord)</span>
+            </button>
+            <ul class="select-menu" role="listbox" hidden>
+              <li role="option" data-value="date-desc" aria-selected="true">Date ↓ (récent d'abord)</li>
+              <li role="option" data-value="date-asc">Date ↑ (ancien d'abord)</li>
+              <li role="option" data-value="name-asc">Nom A–Z</li>
+              <li role="option" data-value="name-desc">Nom Z–A</li>
+              <li role="option" data-value="size-desc">Taille ↓</li>
+              <li role="option" data-value="size-asc">Taille ↑</li>
+              <li role="option" data-value="type">Type</li>
+            </ul>
+          </div>
+          <div class="select-wrap" id="filter-select-wrap" data-value="all">
+            <button type="button" class="select-trigger" id="filter-select" aria-haspopup="listbox" aria-expanded="false" aria-label="Filtrer par type">
+              <span class="select-trigger__label">Tous les types</span>
+            </button>
+            <ul class="select-menu" role="listbox" hidden>
+              <li role="option" data-value="all" aria-selected="true">Tous les types</li>
+              <li role="option" data-value="image">Images</li>
+              <li role="option" data-value="video">Vidéos</li>
+              <li role="option" data-value="audio">Audios</li>
+              <li role="option" data-value="document">Documents</li>
+              <li role="option" data-value="archive">Archives</li>
+              <li role="option" data-value="other">Autres</li>
+            </ul>
+          </div>
+        </div>
+        <div class="toolbar__group">
+          <input type="search" id="search-input" placeholder="Rechercher…" aria-label="Rechercher un fichier" />
+        </div>
+      </div>
+
+      <div class="selection-bar" id="selection-bar" hidden>
+        <label class="select-all">
+          <input type="checkbox" id="select-all" />
+          <span>Tout</span>
+        </label>
+        <span class="selection-count" id="selection-count">0 sélectionné</span>
+        <button type="button" class="btn btn--secondary" id="bulk-delete" disabled>Supprimer</button>
+        <button type="button" class="btn btn--secondary" id="bulk-archive" disabled>Archiver</button>
+      </div>
+
+      <main class="main" id="main" aria-label="Liste des téléchargements">
+        <div class="empty-state" id="empty-state" hidden>
+          <svg class="empty-state__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <p class="empty-state__text">Aucun téléchargement trouvé</p>
+          <p class="empty-state__hint">Les fichiers apparaîtront ici au fur et à mesure</p>
+        </div>
+        <div class="loading-state" id="loading-state" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Chargement…</p>
+        </div>
+        <div class="file-list" id="file-list" role="list" hidden></div>
+      </main>
+
+      <footer class="footer" id="footer" hidden>
+        <div class="footer__hints">
+          <kbd class="hint"><span class="hint__key">←</span> Supprimer</kbd>
+          <kbd class="hint"><span class="hint__key">→</span> Archiver</kbd>
+          <kbd class="hint"><span class="hint__key">↑</span> Ouvrir</kbd>
+          <kbd class="hint"><span class="hint__key">↓</span> Suivant</kbd>
+        </div>
+        <p class="footer__status" id="footer-status"></p>
+      </footer>
+    </div>
+
+    <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
+      <form class="settings-form" method="dialog">
+        <header class="settings-header">
+          <h2 id="settings-title">Paramètres</h2>
+          <button class="btn btn--icon" value="cancel" aria-label="Fermer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </header>
+        <div class="settings-body">
+          <fieldset>
+            <legend>Dossier d'archivage</legend>
+            <p class="field-hint">Chemin relatif au dossier « Téléchargements » du navigateur</p>
+            <div class="field-row">
+              <input type="text" id="archive-folder-input" placeholder="Archives" />
+              <span class="field-prefix">Téléchargements/</span>
+            </div>
+            <p class="field-hint" id="archive-preview">Aperçu : Téléchargements/Archives/</p>
+          </fieldset>
+          <fieldset>
+            <legend>Prévisualisation</legend>
+            <label class="toggle">
+              <input type="checkbox" id="preview-enabled" checked />
+              <span class="toggle__ui"><span class="toggle__knob"></span></span>
+              <span class="toggle__label">Activer les aperçus (images/vidéos)</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="preview-lazy" checked />
+              <span class="toggle__ui"><span class="toggle__knob"></span></span>
+              <span class="toggle__label">Chargement différé (plus rapide)</span>
+            </label>
+          </fieldset>
+        </div>
+        <footer class="settings-footer">
+          <button type="button" class="btn btn--primary" id="save-settings">Enregistrer</button>
+          <button class="btn btn--secondary" value="cancel">Annuler</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

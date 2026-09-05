@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { defineConfig } from 'wxt';
 
 /**
- * Binaire Chromium pour l’auto-lancement en dev (web-ext).
+ * Binaire Chromium pour l'auto-lancement en dev (web-ext).
  * Évite les wrappers Flatpak/Snap si le CDP échoue.
  */
 function resolveChromiumBinary(): string | undefined {
@@ -28,8 +28,8 @@ export default defineConfig({
     description: 'Classez automatiquement vos téléchargements par type de fichier.',
     permissions:
       browser === 'firefox'
-        ? ['downloads', 'storage']
-        : ['downloads', 'downloads.shelf', 'storage'],
+        ? ['downloads', 'storage', 'sidePanel']
+        : ['downloads', 'downloads.open', 'downloads.shelf', 'storage', 'sidePanel'],
     host_permissions: ['<all_urls>'],
     icons: {
       16: 'logo.png',
@@ -46,6 +46,9 @@ export default defineConfig({
         48: 'logo.png',
       },
     },
+    side_panel: {
+      default_path: 'sidepanel/index.html',
+    },
   }),
   webExt: chromiumBinary
     ? {
@@ -57,4 +60,14 @@ export default defineConfig({
     : {
         disabled: true,
       },
+  vite: () => ({
+    build: {
+      modulePreload: false,
+      rollupOptions: {
+        output: {
+          manualChunks: undefined,
+        },
+      },
+    },
+  }),
 });
