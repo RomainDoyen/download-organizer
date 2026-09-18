@@ -1,5 +1,12 @@
 import { browser, type Browser } from 'wxt/browser';
 import { isAlreadyUnderSortFolder, shouldPreserveSuggestedFilename } from '@/lib/organizer-logic';
+import {
+  DOWNLOADS_CHANGED_MESSAGE,
+  downloadsSnapshot,
+  hasDownloadsChanged,
+  isRelevantDownloadDelta,
+  toWatchItem,
+} from '@/lib/download-watch';
 import { getArchiveFolder, isSortingEnabled, SORT_ENABLED_KEY, syncActionBadge } from '@/lib/sorting-settings';
 
 type DownloadItem = Browser.downloads.DownloadItem;
@@ -170,8 +177,55 @@ async function refreshBadgeFromStorage(): Promise<void> {
   syncActionBadge(await isSortingEnabled());
 }
 
+const WATCH_ALARM = 'watch-downloads';
+let lastWatchSnapshot = '';
+
+async function scanDownloads(): Promise<void> {
+  try {
+    const items = await browser.downloads.search({
+      limit: 10000,
+      orderBy: ['-startTime'],
+    });
+    const watched = items
+      .map(toWatchItem)
+      .filter((item): item is NonNullable<typeof item> => item != null);
+    const next = downloadsSnapshot(watched);
+    if (!hasDownloadsChanged(lastWatchSnapshot, next)) return;
+    lastWatchSnapshot = next;
+    try {
+      await browser.runtime.sendMessage({ type: DOWNLOADS_CHANGED_MESSAGE });
+    } catch {
+      /* panneau fermé : le prochain scan / ouverture rattrapera */
+    }
+  } catch (err) {
+    console.error('[download-organizer] Impossible de surveiller Téléchargements', err);
+  }
+}
+
+function registerDownloadWatch(): void {
+  browser.downloads.onCreated.addListener(() => {
+    void scanDownloads();
+  });
+  browser.downloads.onChanged.addListener((delta) => {
+    if (!isRelevantDownloadDelta(delta)) return;
+    void scanDownloads();
+  });
+  browser.downloads.onErased.addListener(() => {
+    void scanDownloads();
+  });
+
+  void browser.alarms.create(WATCH_ALARM, { periodInMinutes: 1 });
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name !== WATCH_ALARM) return;
+    void scanDownloads();
+  });
+
+  void scanDownloads();
+}
+
 export default defineBackground(() => {
   void refreshBadgeFromStorage();
+  registerDownloadWatch();
 
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes[SORT_ENABLED_KEY]) return;

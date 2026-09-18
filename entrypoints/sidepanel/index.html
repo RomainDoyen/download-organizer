@@ -14,14 +14,14 @@
         </div>
         <div class="header__right">
           <span class="counter" id="file-count" aria-live="polite">0 fichiers</span>
-          <button class="btn btn--secondary" id="refresh-btn" aria-label="Actualiser la liste">
+          <button class="icon-btn" id="refresh-btn" aria-label="Actualiser la liste">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M23 4v6h-6" />
               <path d="M1 20v-6h6" />
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
           </button>
-          <button class="btn btn--secondary" id="settings-btn" aria-label="Paramètres">
+          <button class="icon-btn icon-btn--accent" id="settings-btn" aria-label="Paramètres">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -30,49 +30,56 @@
         </div>
       </header>
 
+      <section class="folder-banner" id="folder-banner">
+        <p class="folder-banner__title">Dossiers locaux</p>
+        <p class="folder-banner__text" id="folder-banner-text">
+          Ajoutez Téléchargements, le Bureau ou n’importe quel autre dossier. Vous pouvez en connecter plusieurs : racine et sous-dossiers de chacun sont listés.
+        </p>
+        <p class="folder-banner__hint" id="folder-banner-hint" hidden></p>
+        <button type="button" class="btn btn--primary folder-banner__btn" id="grant-folder-btn">
+          Ajouter un dossier
+        </button>
+      </section>
+
       <div class="toolbar" role="toolbar" aria-label="Filtres et tri">
-        <div class="toolbar__group">
-          <div class="select-wrap" id="sort-select-wrap" data-value="date-desc">
-            <button type="button" class="select-trigger" id="sort-select" aria-haspopup="listbox" aria-expanded="false" aria-label="Trier par">
-              <span class="select-trigger__label">Date ↓ (récent d'abord)</span>
-            </button>
-            <ul class="select-menu" role="listbox" hidden>
-              <li role="option" data-value="date-desc" aria-selected="true">Date ↓ (récent d'abord)</li>
-              <li role="option" data-value="date-asc">Date ↑ (ancien d'abord)</li>
-              <li role="option" data-value="name-asc">Nom A–Z</li>
-              <li role="option" data-value="name-desc">Nom Z–A</li>
-              <li role="option" data-value="size-desc">Taille ↓</li>
-              <li role="option" data-value="size-asc">Taille ↑</li>
-              <li role="option" data-value="type">Type</li>
-            </ul>
-          </div>
-          <div class="select-wrap" id="filter-select-wrap" data-value="all">
-            <button type="button" class="select-trigger" id="filter-select" aria-haspopup="listbox" aria-expanded="false" aria-label="Filtrer par type">
-              <span class="select-trigger__label">Tous les types</span>
-            </button>
-            <ul class="select-menu" role="listbox" hidden>
-              <li role="option" data-value="all" aria-selected="true">Tous les types</li>
-              <li role="option" data-value="image">Images</li>
-              <li role="option" data-value="video">Vidéos</li>
-              <li role="option" data-value="audio">Audios</li>
-              <li role="option" data-value="document">Documents</li>
-              <li role="option" data-value="archive">Archives</li>
-              <li role="option" data-value="other">Autres</li>
-            </ul>
-          </div>
+        <div class="toolbar__search">
+          <input type="search" id="search-input" placeholder="Rechercher un fichier…" aria-label="Rechercher un fichier" />
         </div>
         <div class="toolbar__group">
-          <input type="search" id="search-input" placeholder="Rechercher…" aria-label="Rechercher un fichier" />
+          <label class="select-wrap">
+            <span class="sr-only">Trier par</span>
+            <select id="sort-select" aria-label="Trier par">
+              <option value="date-desc" selected>Date ↓ (récent d'abord)</option>
+              <option value="date-asc">Date ↑ (ancien d'abord)</option>
+              <option value="name-asc">Nom A–Z</option>
+              <option value="name-desc">Nom Z–A</option>
+              <option value="size-desc">Taille ↓</option>
+              <option value="size-asc">Taille ↑</option>
+              <option value="type">Type</option>
+            </select>
+          </label>
+          <label class="select-wrap">
+            <span class="sr-only">Filtrer par type</span>
+            <select id="filter-select" aria-label="Filtrer par type">
+              <option value="all" selected>Tous les types</option>
+              <option value="image">Images</option>
+              <option value="video">Vidéos</option>
+              <option value="audio">Audios</option>
+              <option value="document">Documents</option>
+              <option value="archive">Archives</option>
+              <option value="other">Autres</option>
+            </select>
+          </label>
         </div>
       </div>
 
       <div class="selection-bar" id="selection-bar" hidden>
         <label class="select-all">
           <input type="checkbox" id="select-all" />
-          <span>Tout</span>
+          <span>Tous</span>
         </label>
-        <span class="selection-count" id="selection-count">0 sélectionné</span>
-        <button type="button" class="btn btn--secondary" id="bulk-delete" disabled>Supprimer</button>
+        <span class="selection-count" id="selection-count">Aucune sélection</span>
+        <button type="button" class="btn btn--danger" id="bulk-delete" disabled>Supprimer</button>
         <button type="button" class="btn btn--secondary" id="bulk-archive" disabled>Archiver</button>
       </div>
 
@@ -83,8 +90,8 @@
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          <p class="empty-state__text">Aucun téléchargement trouvé</p>
-          <p class="empty-state__hint">Les fichiers apparaîtront ici au fur et à mesure</p>
+          <p class="empty-state__text">Aucun téléchargement à afficher</p>
+          <p class="empty-state__hint">Les fichiers du navigateur et ceux des dossiers connectés apparaissent ici.</p>
         </div>
         <div class="loading-state" id="loading-state" hidden>
           <div class="spinner" aria-hidden="true"></div>
@@ -117,11 +124,19 @@
         </header>
         <div class="settings-body">
           <fieldset>
+            <legend>Dossiers connectés</legend>
+            <p class="field-hint" id="folder-access-status">
+              Ajoutez autant de dossiers que nécessaire. Chacun est listé avec sa racine et ses sous-dossiers.
+            </p>
+            <ul class="folder-list" id="folder-list" hidden></ul>
+            <button type="button" class="btn btn--secondary" id="folder-access-btn">Ajouter un dossier</button>
+          </fieldset>
+          <fieldset>
             <legend>Dossier d'archivage</legend>
             <p class="field-hint">Chemin relatif au dossier « Téléchargements » du navigateur</p>
             <div class="field-row">
-              <input type="text" id="archive-folder-input" placeholder="Archives" />
               <span class="field-prefix">Téléchargements/</span>
+              <input type="text" id="archive-folder-input" placeholder="Archives" />
             </div>
             <p class="field-hint" id="archive-preview">Aperçu : Téléchargements/Archives/</p>
           </fieldset>
@@ -142,6 +157,19 @@
         <footer class="settings-footer">
           <button type="button" class="btn btn--primary" id="save-settings">Enregistrer</button>
           <button class="btn btn--secondary" value="cancel">Annuler</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="settings-dialog confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <form class="confirm-form" method="dialog">
+        <div class="settings-body">
+          <h2 id="confirm-title">Supprimer ?</h2>
+          <p id="confirm-text">Cette action est définitive.</p>
+        </div>
+        <footer class="settings-footer">
+          <button type="submit" class="btn btn--secondary" value="cancel">Annuler</button>
+          <button type="submit" class="btn btn--danger" id="confirm-accept" value="confirm">Supprimer</button>
         </footer>
       </form>
     </dialog>

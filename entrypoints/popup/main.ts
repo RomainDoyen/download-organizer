@@ -8,6 +8,7 @@ import {
 
 const input = document.querySelector<HTMLInputElement>('#sort-enabled');
 const detailEl = document.getElementById('status-detail');
+const detailSrEl = document.getElementById('status-detail-sr');
 const labelEl = document.getElementById('status-label');
 const bannerEl = document.getElementById('status-banner');
 
@@ -32,6 +33,7 @@ function applySortState(enabled: boolean): void {
   const copy = enabled ? COPY.on : COPY.off;
   if (labelEl) labelEl.textContent = copy.label;
   if (detailEl) detailEl.textContent = copy.detail;
+  if (detailSrEl) detailSrEl.textContent = copy.detail;
   if (bannerEl) bannerEl.setAttribute('aria-label', copy.label + '. ' + copy.detail);
 }
 
@@ -58,6 +60,18 @@ async function init(): Promise<void> {
       await browser.sidePanel.open({ windowId: win.id });
     } catch (err) {
       console.error('[organizer] Impossible d’ouvrir le panneau', err);
+    }
+  });
+
+  const grantBtn = document.getElementById('grant-folder');
+  grantBtn?.addEventListener('click', async () => {
+    try {
+      await browser.tabs.create({
+        url: browser.runtime.getURL('/folder-access.html'),
+        active: true,
+      });
+    } catch (err) {
+      console.error('[organizer] Impossible d’ouvrir la page d’autorisation', err);
     }
   });
 }

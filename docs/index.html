@@ -48,8 +48,13 @@
           </ul>
         </nav>
         <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Basculer thème clair ou sombre">
-          <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">☀</span>
-          <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">☽</span>
+          <svg class="theme-toggle__icon theme-toggle__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+          <svg class="theme-toggle__icon theme-toggle__icon--moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3 7 7 0 0 0 21 14.5z" />
+          </svg>
         </button>
       </div>
     </header>
@@ -67,9 +72,10 @@
               decoding="async"
             />
           </div>
-          <p class="hero__kicker">Extension · Chrome · Edge · Firefox</p>
           <h1 class="hero__title">Des téléchargements rangés sans y penser</h1>
           <p class="hero__lead">
+            Extension pour <strong>Chrome</strong>, <strong>Edge</strong>, <strong>Brave</strong>,
+            <strong>Opera</strong> et <strong>Firefox</strong>.
             Chaque fichier est enregistré dans un sous-dossier du répertoire de téléchargement par défaut
             — <strong>Images</strong>, <strong>Vidéos</strong>, <strong>Audios</strong>,
             <strong>Documents</strong> ou <strong>Autres</strong> — selon le type MIME et l’extension.
@@ -92,8 +98,9 @@
               téléchargement configuré dans le navigateur.
             </p>
             <p>
-              La catégorisation combine le type MIME (quand il est disponible) et, à défaut, l’extension du
-              fichier pour les cas ambigus.
+              Le panneau peut aussi lister les fichiers déjà présents sur le disque : ajoutez un ou plusieurs
+              dossiers (Téléchargements, Bureau, etc.). Chaque racine et ses sous-dossiers apparaissent, en plus
+              de l’historique du navigateur.
             </p>
             <p>
               <strong>Firefox :</strong> ce navigateur ne propose pas l’API
@@ -182,6 +189,14 @@ npm run zip:firefox</code></pre>
                 <strong>Edge :</strong> <code class="inline">edge://extensions</code> → Mode développeur →
                 Charger l’extension non empaquetée → sélectionner
                 <code class="inline">.output/edge-mv3</code>
+              </li>
+              <li>
+                <strong>Brave / Opera / Vivaldi :</strong> même paquet que Chrome
+                (<code class="inline">.output/chrome-mv3</code>) via
+                <code class="inline">brave://extensions</code> (ou <code class="inline">opera://extensions</code>).
+                Sur Brave, l’accès permanent au dossier peut exiger
+                <code class="inline">brave://flags/#file-system-access-api</code> → Enabled, puis relancer.
+                Sinon, le bouton « Ajouter un dossier » ouvre le sélecteur de fichiers classique.
               </li>
               <li>
                 <strong>Firefox :</strong> <code class="inline">about:debugging#/runtime/this-firefox</code> →

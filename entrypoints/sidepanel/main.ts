@@ -12,6 +12,43 @@ import {
   shouldCancelBeforeArchive,
 } from '@/lib/organizer-logic';
 import {
+  DOWNLOADS_CHANGED_MESSAGE,
+  downloadsSnapshot,
+  isRelevantDownloadDelta,
+} from '@/lib/download-watch';
+import {
+  archiveLocalFile,
+  canMutateLocalFile,
+  chromiumFolderFlagHint,
+  folderNameFromFiles,
+  folderRecordKey,
+  getLocalFileBlob,
+  isDirectoryInputSupported,
+  isFolderAccessSupported,
+  listLocalDownloadFiles,
+  localRecordsFromFiles,
+  mergeUncoveredFsItems,
+  needsChromiumFolderFlag,
+  pickDownloadsFolder,
+  pickDownloadsFolderViaInput,
+  queryFolderPermission,
+  removeLocalFile,
+  requestFolderPermission,
+  uniqueDisplayName,
+  fsStableId,
+  type LocalFileRecord,
+} from '@/lib/local-folder';
+import {
+  DOWNLOADS_FOLDER_LINKED_KEY,
+  addDirHandle,
+  addSessionFolderGroup,
+  loadDirHandles,
+  loadSessionFolderGroups,
+  removeDirHandleAt,
+  removeSessionFolderGroupAt,
+  type SessionFolderGroup,
+} from '@/lib/folder-handle-store';
+import {
   getArchiveFolder,
   setArchiveFolder,
   isPreviewEnabled,
@@ -35,6 +72,8 @@ interface FileEntry {
   state: string;
   category: FileCategory;
   exists: boolean;
+  source: 'chrome' | 'fs';
+  relativePath?: string;
 }
 
 const CATEGORY_LABELS: Record<FileCategory, string> = {
@@ -78,7 +117,14 @@ const checkedIds = new Set<number>();
 const previewObjectUrls: string[] = [];
 let lastCheckedIndex = -1;
 let previewObserver: IntersectionObserver | null = null;
+let pendingReload = false;
+let lastListSnapshot: string | null = null;
+let reloadTimer: ReturnType<typeof setTimeout> | undefined;
 let listenersBound = false;
+let dirHandles: FileSystemDirectoryHandle[] = [];
+let folderPermission: PermissionState | 'unsupported' = 'prompt';
+const fsById = new Map<number, LocalFileRecord>();
+let sessionGroups: SessionFolderGroup[] = [];
 
 const mainEl = document.getElementById('main')!;
 const fileListEl = document.getElementById('file-list')!;
@@ -92,8 +138,8 @@ const selectAllInput = document.getElementById('select-all') as HTMLInputElement
 const selectionCountEl = document.getElementById('selection-count')!;
 const bulkDeleteBtn = document.getElementById('bulk-delete') as HTMLButtonElement;
 const bulkArchiveBtn = document.getElementById('bulk-archive') as HTMLButtonElement;
-const sortWrap = document.getElementById('sort-select-wrap')!;
-const filterWrap = document.getElementById('filter-select-wrap')!;
+const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
+const filterSelect = document.getElementById('filter-select') as HTMLSelectElement;
 const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const refreshBtn = document.getElementById('refresh-btn')!;
 const settingsBtn = document.getElementById('settings-btn')!;
@@ -103,6 +149,53 @@ const archivePreviewEl = document.getElementById('archive-preview')!;
 const previewEnabledInput = document.getElementById('preview-enabled') as HTMLInputElement;
 const lazyPreviewInput = document.getElementById('preview-lazy') as HTMLInputElement;
 const saveSettingsBtn = document.getElementById('save-settings')!;
+const folderBanner = document.getElementById('folder-banner')!;
+const folderBannerText = document.getElementById('folder-banner-text')!;
+const folderBannerHint = document.getElementById('folder-banner-hint')!;
+const grantFolderBtn = document.getElementById('grant-folder-btn') as HTMLButtonElement;
+const folderAccessStatus = document.getElementById('folder-access-status')!;
+const folderAccessBtn = document.getElementById('folder-access-btn') as HTMLButtonElement;
+const folderListEl = document.getElementById('folder-list')!;
+const confirmDialog = document.getElementById('confirm-dialog') as HTMLDialogElement;
+const confirmTitle = document.getElementById('confirm-title')!;
+const confirmText = document.getElementById('confirm-text')!;
+const confirmAccept = document.getElementById('confirm-accept') as HTMLButtonElement;
+let confirmIgnoreUntil = 0;
+
+function askConfirm(options: { title: string; text: string; confirmLabel?: string }): Promise<boolean> {
+  confirmTitle.textContent = options.title;
+  confirmText.textContent = options.text;
+  confirmAccept.textContent = options.confirmLabel ?? 'Supprimer';
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      confirmDialog.removeEventListener('close', finish);
+      resolve(confirmDialog.returnValue === 'confirm');
+    };
+
+    window.setTimeout(() => {
+      if (confirmDialog.open) confirmDialog.close('cancel');
+      confirmDialog.returnValue = '';
+      confirmIgnoreUntil = Date.now() + 350;
+      confirmDialog.addEventListener('close', finish);
+      confirmDialog.showModal();
+    }, 0);
+  });
+}
+
+function confirmDeleteFiles(files: FileEntry[]): Promise<boolean> {
+  if (files.length === 0) return Promise.resolve(false);
+  if (files.length === 1) {
+    return askConfirm({
+      title: 'Supprimer ce fichier ?',
+      text: `« ${files[0]!.basename} » sera retiré du disque. Cette action est définitive.`,
+    });
+  }
+  return askConfirm({
+    title: `Supprimer ${files.length} fichiers ?`,
+    text: 'Ils seront retirés du disque. Cette action est définitive.',
+  });
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;
@@ -167,13 +260,321 @@ function createFileEntry(item: DownloadItem): FileEntry {
     state: item.state || 'complete',
     category,
     exists: item.exists !== false,
+    source: 'chrome',
   };
 }
 
+function createFsFileEntry(record: LocalFileRecord): FileEntry {
+  const folderName = record.folderName || 'Dossier';
+  return {
+    id: fsStableId(folderRecordKey(folderName, record.relativePath)),
+    filename: `${folderName}/${record.relativePath}`,
+    basename: record.name,
+    url: '',
+    mime: record.mime,
+    fileSize: record.size,
+    startTime: new Date(record.lastModified).toISOString(),
+    state: 'complete',
+    category: detectCategory(record.mime, record.name),
+    exists: true,
+    source: 'fs',
+    relativePath: record.relativePath,
+  };
+}
+
+function connectedFolderCount(): number {
+  return dirHandles.length + sessionGroups.length;
+}
+
+function connectedFolderNames(): string[] {
+  return [...dirHandles.map((handle) => handle.name), ...sessionGroups.map((group) => group.name)];
+}
+
+function labeledHandles(): { handle: FileSystemDirectoryHandle; label: string }[] {
+  const used: string[] = [];
+  return dirHandles.map((handle) => {
+    const label = uniqueDisplayName(handle.name, used);
+    used.push(label);
+    return { handle, label };
+  });
+}
+
+function renderConnectedFolders(): void {
+  const items: { kind: 'handle' | 'session'; index: number; name: string; extra: string }[] = [
+    ...labeledHandles().map(({ handle, label }, index) => ({
+      kind: 'handle' as const,
+      index,
+      name: label,
+      extra: handle.name === label ? 'accès persistant' : `${handle.name} · accès persistant`,
+    })),
+    ...sessionGroups.map((group, index) => ({
+      kind: 'session' as const,
+      index,
+      name: group.name,
+      extra: `${group.files.length} fichier${group.files.length > 1 ? 's' : ''} · jusqu’à la fermeture du navigateur`,
+    })),
+  ];
+
+  if (items.length === 0) {
+    folderListEl.hidden = true;
+    folderListEl.innerHTML = '';
+    return;
+  }
+
+  folderListEl.hidden = false;
+  folderListEl.innerHTML = items
+    .map(
+      (item) => `
+        <li class="folder-list__item">
+          <span class="folder-list__meta">
+            <span class="folder-list__name">${escapeHtml(item.name)}</span>
+            <span class="folder-list__extra">${escapeHtml(item.extra)}</span>
+          </span>
+          <button type="button" class="btn btn--secondary folder-list__remove" data-kind="${item.kind}" data-index="${item.index}">
+            Retirer
+          </button>
+        </li>`,
+    )
+    .join('');
+}
+
+function updateFolderAccessUi(): void {
+  folderAccessBtn.hidden = false;
+  folderAccessBtn.textContent = 'Ajouter un dossier';
+  const count = connectedFolderCount();
+  const hasPersistent = dirHandles.length > 0;
+  const hasSession = sessionGroups.length > 0;
+  const ready = (folderPermission === 'granted' && hasPersistent) || hasSession;
+  renderConnectedFolders();
+
+  if (needsChromiumFolderFlag()) {
+    folderBannerHint.hidden = false;
+    folderBannerHint.textContent = chromiumFolderFlagHint();
+  } else {
+    folderBannerHint.hidden = true;
+  }
+
+  if (ready) {
+    folderBanner.hidden = true;
+    const names = connectedFolderNames().join(', ');
+    folderAccessStatus.textContent =
+      count === 1
+        ? `Dossier connecté : ${names}. Ajoutez-en d’autres si besoin.`
+        : `${count} dossiers connectés : ${names}.`;
+    return;
+  }
+
+  folderBanner.hidden = false;
+  grantFolderBtn.textContent = hasPersistent ? 'Rétablir l’accès' : 'Ajouter un dossier';
+
+  if (hasPersistent && folderPermission !== 'granted') {
+    folderBannerText.textContent =
+      'L’accès à un ou plusieurs dossiers a été révoqué. Réactivez-le pour revoir les fichiers copiés à la main.';
+    folderAccessStatus.textContent = 'Accès en attente. Un clic suffit pour le rétablir, puis vous pourrez en ajouter d’autres.';
+    return;
+  }
+
+  folderBannerText.textContent =
+    'Ajoutez Téléchargements, le Bureau ou n’importe quel autre dossier. Vous pouvez en connecter plusieurs : racine et sous-dossiers de chacun sont listés.';
+  folderAccessStatus.textContent =
+    'Aucun dossier connecté. Sans connexion, seuls les téléchargements du navigateur sont listés.';
+}
+
+async function openFolderAccessTab(): Promise<void> {
+  const url = browser.runtime.getURL('/folder-access.html');
+  await browser.tabs.create({ url, active: true });
+}
+
+async function refreshFolderPermission(): Promise<void> {
+  if (!isFolderAccessSupported()) {
+    folderPermission = dirHandles.length > 0 ? 'prompt' : 'unsupported';
+    updateFolderAccessUi();
+    return;
+  }
+
+  if (dirHandles.length === 0) {
+    folderPermission = 'prompt';
+    updateFolderAccessUi();
+    return;
+  }
+
+  let granted = 0;
+  for (const handle of dirHandles) {
+    try {
+      if ((await queryFolderPermission(handle)) === 'granted') granted += 1;
+    } catch {
+      /* handle invalide */
+    }
+  }
+  folderPermission = granted > 0 ? 'granted' : 'prompt';
+  updateFolderAccessUi();
+}
+
+async function restoreExistingHandles(): Promise<boolean> {
+  if (!isFolderAccessSupported() || dirHandles.length === 0) return false;
+  let granted = false;
+  for (const handle of dirHandles) {
+    try {
+      let state = await queryFolderPermission(handle);
+      if (state !== 'granted') {
+        state = await requestFolderPermission(handle);
+      }
+      if (state === 'granted') granted = true;
+    } catch {
+      /* ignore */
+    }
+  }
+  await refreshFolderPermission();
+  return granted;
+}
+
+async function connectViaDirectoryInput(): Promise<boolean> {
+  if (!isDirectoryInputSupported()) return false;
+  const files = await pickDownloadsFolderViaInput();
+  if (files.length === 0) return false;
+  const name = uniqueDisplayName(folderNameFromFiles(files), connectedFolderNames());
+  try {
+    sessionGroups = await addSessionFolderGroup({ name, files });
+  } catch {
+    sessionGroups = [...sessionGroups, { name, files }];
+  }
+  await browser.storage.local.set({ [DOWNLOADS_FOLDER_LINKED_KEY]: Date.now() });
+  updateFolderAccessUi();
+  lastListSnapshot = null;
+  void loadDownloads();
+  return true;
+}
+
+async function connectDownloadsFolder(intent: 'add' | 'restore' = 'add'): Promise<void> {
+  try {
+    if (isFolderAccessSupported()) {
+      const restored = await restoreExistingHandles();
+      if (intent === 'restore' && restored) {
+        lastListSnapshot = null;
+        void loadDownloads();
+        return;
+      }
+
+      try {
+        const handle = await pickDownloadsFolder();
+        let permission = await queryFolderPermission(handle);
+        if (permission !== 'granted') {
+          permission = await requestFolderPermission(handle);
+        }
+        if (permission === 'granted') {
+          const before = dirHandles.length;
+          dirHandles = await addDirHandle(handle);
+          folderPermission = 'granted';
+          await browser.storage.local.set({ [DOWNLOADS_FOLDER_LINKED_KEY]: Date.now() });
+          if (dirHandles.length === before) {
+            footerStatusEl.textContent = `« ${handle.name} » est déjà connecté.`;
+            clearStatusAfter(3000);
+          }
+        }
+        updateFolderAccessUi();
+        lastListSnapshot = null;
+        void loadDownloads();
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.warn('[organizer] Sélecteur avancé indisponible, repli fichier', err);
+      }
+    }
+
+    if (await connectViaDirectoryInput()) return;
+    await openFolderAccessTab();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return;
+    console.error('[organizer] Accès dossier impossible', err);
+    try {
+      await openFolderAccessTab();
+    } catch {
+      footerStatusEl.textContent = 'Impossible d’accéder au dossier';
+      clearStatusAfter(4000);
+    }
+  }
+}
+
+async function removeConnectedFolder(kind: 'handle' | 'session', index: number): Promise<void> {
+  const name = kind === 'handle' ? labeledHandles()[index]?.label : sessionGroups[index]?.name;
+  if (!name) return;
+  const ok = await askConfirm({
+    title: 'Retirer ce dossier ?',
+    text: `« ${name} » ne sera plus listé. Les fichiers sur le disque ne seront pas effacés.`,
+    confirmLabel: 'Retirer',
+  });
+  if (!ok) return;
+  if (kind === 'handle') {
+    dirHandles = await removeDirHandleAt(index);
+  } else {
+    sessionGroups = await removeSessionFolderGroupAt(index);
+  }
+  await browser.storage.local.set({ [DOWNLOADS_FOLDER_LINKED_KEY]: Date.now() });
+  await refreshFolderPermission();
+  lastListSnapshot = null;
+  void loadDownloads();
+}
+
+function applyLocalRecords(chromeFilenames: string[], records: LocalFileRecord[]): FileEntry[] {
+  const extra = mergeUncoveredFsItems(chromeFilenames, records);
+  return extra.map((record) => {
+    const entry = createFsFileEntry(record);
+    fsById.set(entry.id, record);
+    return entry;
+  });
+}
+
+async function loadLocalFolderFiles(chromeFilenames: string[]): Promise<FileEntry[]> {
+  fsById.clear();
+  const records: LocalFileRecord[] = [];
+
+  if (dirHandles.length > 0 && isFolderAccessSupported()) {
+    for (const { handle, label } of labeledHandles()) {
+      try {
+        if ((await queryFolderPermission(handle)) !== 'granted') continue;
+        const listed = await listLocalDownloadFiles(handle, archiveFolder);
+        for (const record of listed) {
+          records.push({ ...record, folderName: label, root: handle });
+        }
+      } catch (err) {
+        console.error('[organizer] Lecture d’un dossier connecté impossible', err);
+      }
+    }
+  }
+
+  if (sessionGroups.length === 0) {
+    try {
+      sessionGroups = await loadSessionFolderGroups();
+    } catch {
+      sessionGroups = [];
+    }
+  }
+
+  for (const group of sessionGroups) {
+    records.push(...localRecordsFromFiles(group.files, archiveFolder, group.name));
+  }
+
+  updateFolderAccessUi();
+  if (records.length === 0) return [];
+  return applyLocalRecords(chromeFilenames, records);
+}
+
+function scheduleReload(): void {
+  if (reloadTimer) clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(() => {
+    reloadTimer = undefined;
+    void loadDownloads();
+  }, 250);
+}
+
 async function loadDownloads(): Promise<void> {
-  if (isLoading) return;
+  if (isLoading) {
+    pendingReload = true;
+    return;
+  }
   isLoading = true;
   showLoading(true);
+  let shouldRender = false;
 
   try {
     const downloads = await browser.downloads.search({
@@ -181,22 +582,46 @@ async function loadDownloads(): Promise<void> {
       orderBy: ['-startTime'],
     });
 
-    allFiles = downloads
+    const chromeFiles = downloads
       .filter((d) => d.state === 'complete' && d.filename)
       .filter((d) => d.exists !== false)
       .filter((d) => !hiddenIds.has(d.id!))
       .filter((d) => !isUnderFolder(d.filename || '', archiveFolder))
       .map(createFileEntry);
 
-    applyFilterAndSort();
-    restoreSelection();
+    const localFiles = await loadLocalFolderFiles(chromeFiles.map((file) => file.filename));
+    const nextFiles = [...chromeFiles, ...localFiles].filter((file) => !hiddenIds.has(file.id));
+
+    const snap = downloadsSnapshot(
+      nextFiles.map((file) => ({
+        id: file.id,
+        filename: file.filename,
+        state: file.state,
+        exists: file.exists,
+        fileSize: file.fileSize,
+      })),
+    );
+    const listChanged = lastListSnapshot === null || snap !== lastListSnapshot;
+    lastListSnapshot = snap;
+
+    if (listChanged) {
+      allFiles = nextFiles;
+      applyFilterAndSort();
+      restoreSelection();
+      shouldRender = true;
+    }
   } catch (err) {
     console.error('[organizer] Failed to load downloads:', err);
     footerStatusEl.textContent = 'Erreur lors du chargement';
+    shouldRender = true;
   } finally {
     isLoading = false;
     showLoading(false);
-    updateUI();
+    if (shouldRender) updateUI();
+    if (pendingReload) {
+      pendingReload = false;
+      void loadDownloads();
+    }
   }
 }
 
@@ -403,6 +828,34 @@ async function hydratePreview(el: HTMLElement): Promise<void> {
   const url = el.getAttribute('data-preview-url');
   const kind = el.getAttribute('data-preview-kind');
   const id = Number(el.closest('.file-item')?.getAttribute('data-id'));
+  const record = Number.isFinite(id) ? fsById.get(id) : undefined;
+
+  if (record && (kind === 'image' || kind === 'video')) {
+    try {
+      const blob = await getLocalFileBlob(record);
+      if (!el.isConnected) return;
+      const objectUrl = URL.createObjectURL(blob);
+      previewObjectUrls.push(objectUrl);
+      if (kind === 'image') {
+        const img = document.createElement('img');
+        img.className = 'file-preview__img';
+        img.alt = '';
+        img.src = objectUrl;
+        el.replaceChildren(img);
+      } else {
+        const video = document.createElement('video');
+        video.className = 'file-preview__img';
+        video.muted = true;
+        video.preload = 'metadata';
+        video.playsInline = true;
+        video.src = objectUrl;
+        el.replaceChildren(video);
+      }
+      return;
+    } catch {
+      /* icône par défaut */
+    }
+  }
 
   if (url && kind === 'image') {
     const objectUrl = await fetchImagePreviewUrl(url);
@@ -533,12 +986,17 @@ function getCheckedTargets(): FileEntry[] {
   return [];
 }
 
-async function deleteChecked(): Promise<void> {
-  const targets = getCheckedTargets();
-  for (const file of targets) {
+async function requestDeleteFiles(files: FileEntry[]): Promise<void> {
+  if (files.length === 0) return;
+  if (!(await confirmDeleteFiles(files))) return;
+  for (const file of files) {
     const index = filteredFiles.findIndex((f) => f.id === file.id);
     if (index >= 0) await deleteFile(index);
   }
+}
+
+async function deleteChecked(): Promise<void> {
+  await requestDeleteFiles(getCheckedTargets());
 }
 
 async function archiveChecked(): Promise<void> {
@@ -565,9 +1023,11 @@ function selectItem(index: number): void {
 
 function handleAction(action: string, index: number): void {
   switch (action) {
-    case 'delete':
-      void deleteFile(index);
+    case 'delete': {
+      const file = filteredFiles[index];
+      if (file) void requestDeleteFiles([file]);
       break;
+    }
     case 'archive':
       void archiveFile(index);
       break;
@@ -606,19 +1066,33 @@ async function deleteFile(index: number): Promise<void> {
   dismissFromQueue(file);
 
   try {
-    try {
-      await browser.downloads.removeFile(file.id);
-    } catch {
-      /* déjà absent du disque */
+    if (file.source === 'fs') {
+      const record = fsById.get(file.id);
+      if (!record) throw new Error('missing-fs');
+      if (!canMutateLocalFile(record)) {
+        throw new Error('read-only-folder-access');
+      }
+      await removeLocalFile(record);
+    } else {
+      try {
+        await browser.downloads.removeFile(file.id);
+      } catch {
+        /* déjà absent du disque */
+      }
+      await browser.downloads.erase({ id: file.id });
     }
-    await browser.downloads.erase({ id: file.id });
     footerStatusEl.textContent = `Supprimé : ${file.basename}`;
     clearStatusAfter(2000);
+    lastListSnapshot = null;
+    scheduleReload();
   } catch (err) {
     console.error('[organizer] Delete failed:', err);
     restoreDismissed(file);
-    footerStatusEl.textContent = `Erreur : ${file.basename}`;
-    clearStatusAfter(3000);
+    footerStatusEl.textContent =
+      err instanceof Error && err.message === 'read-only-folder-access'
+        ? `Suppression impossible ici. ${chromiumFolderFlagHint()}`
+        : `Erreur : ${file.basename}`;
+    clearStatusAfter(5000);
   }
 }
 
@@ -659,6 +1133,29 @@ async function waitForDownloadComplete(id: number, timeoutMs = 120000): Promise<
 async function archiveFile(index: number): Promise<void> {
   const file = filteredFiles[index];
   if (!file || hiddenIds.has(file.id)) return;
+
+  if (file.source === 'fs') {
+    const record = fsById.get(file.id);
+    if (!record || !record.root || !canMutateLocalFile(record)) {
+      footerStatusEl.textContent = `Archivage impossible ici. ${chromiumFolderFlagHint()}`;
+      clearStatusAfter(5000);
+      return;
+    }
+    dismissFromQueue(file);
+    try {
+      await archiveLocalFile(record.root, record, archiveFolder);
+      footerStatusEl.textContent = `Archivé : ${file.basename} → ${archiveFolder}/`;
+      clearStatusAfter(2000);
+      lastListSnapshot = null;
+      scheduleReload();
+    } catch (err) {
+      console.error('[organizer] Archive FS failed:', err);
+      restoreDismissed(file);
+      footerStatusEl.textContent = `Erreur archivage : ${file.basename}`;
+      clearStatusAfter(3000);
+    }
+    return;
+  }
 
   if (!canArchiveFromUrl(file.url)) {
     footerStatusEl.textContent = `Impossible d’archiver : URL source indisponible (${file.basename})`;
@@ -724,6 +1221,28 @@ async function openFile(index: number): Promise<void> {
   const file = filteredFiles[index];
   if (!file) return;
 
+  if (file.source === 'fs') {
+    const record = fsById.get(file.id);
+    if (!record) {
+      footerStatusEl.textContent = `Impossible d’ouvrir : ${file.basename}`;
+      clearStatusAfter(3000);
+      return;
+    }
+    try {
+      const blob = await getLocalFileBlob(record);
+      const objectUrl = URL.createObjectURL(blob);
+      previewObjectUrls.push(objectUrl);
+      await browser.tabs.create({ url: objectUrl, active: true });
+      footerStatusEl.textContent = `Ouvert : ${file.basename}`;
+      clearStatusAfter(1500);
+    } catch (err) {
+      console.error('[organizer] Open FS failed:', err);
+      footerStatusEl.textContent = `Impossible d’ouvrir : ${file.basename}`;
+      clearStatusAfter(3000);
+    }
+    return;
+  }
+
   try {
     await browser.downloads.open(file.id);
     footerStatusEl.textContent = `Ouvert : ${file.basename}`;
@@ -763,6 +1282,185 @@ function clearStatusAfter(ms: number): void {
   }, ms);
 }
 
+function closeAllSelects(except?: Element): void {
+  document.querySelectorAll('.select-wrap.is-open').forEach((wrap) => {
+    if (wrap === except) return;
+    wrap.classList.remove('is-open');
+    const btn = wrap.querySelector<HTMLButtonElement>('.select-wrap__btn');
+    const menu = wrap.querySelector<HTMLElement>('.select-menu');
+    btn?.setAttribute('aria-expanded', 'false');
+    if (menu) menu.hidden = true;
+  });
+}
+
+function enhanceSelect(select: HTMLSelectElement | null): void {
+  if (!select) return;
+  const wrap = select.closest('.select-wrap');
+  if (!wrap || wrap.querySelector('.select-wrap__btn')) return;
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'select-wrap__btn';
+  btn.setAttribute('aria-haspopup', 'listbox');
+  btn.setAttribute('aria-expanded', 'false');
+  const label = select.getAttribute('aria-label') || '';
+  if (label) btn.setAttribute('aria-label', label);
+
+  const valueEl = document.createElement('span');
+  valueEl.className = 'select-wrap__value';
+  btn.append(valueEl);
+
+  const menu = document.createElement('ul');
+  menu.className = 'select-menu';
+  menu.id = `${select.id}-menu`;
+  menu.setAttribute('role', 'listbox');
+  if (label) menu.setAttribute('aria-label', label);
+  menu.hidden = true;
+  btn.setAttribute('aria-controls', menu.id);
+
+  wrap.append(btn, menu);
+
+  let activeIndex = select.selectedIndex;
+
+  function optionEls(): HTMLElement[] {
+    return [...menu.querySelectorAll<HTMLElement>('[role="option"]')];
+  }
+
+  function syncLabel(): void {
+    valueEl.textContent = select.options[select.selectedIndex]?.textContent ?? '';
+  }
+
+  function syncOptions(): void {
+    optionEls().forEach((el, i) => {
+      const selected = i === select.selectedIndex;
+      el.classList.toggle('is-selected', selected);
+      el.classList.toggle('is-active', i === activeIndex);
+      el.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
+  }
+
+  function rebuildMenu(): void {
+    menu.replaceChildren(
+      ...[...select.options].map((opt) => {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'option');
+        li.dataset.value = opt.value;
+        li.textContent = opt.textContent ?? opt.value;
+        return li;
+      }),
+    );
+    activeIndex = select.selectedIndex;
+    syncLabel();
+    syncOptions();
+  }
+
+  function close(): void {
+    wrap.classList.remove('is-open');
+    btn.setAttribute('aria-expanded', 'false');
+    menu.hidden = true;
+  }
+
+  function open(): void {
+    closeAllSelects(wrap);
+    rebuildMenu();
+    menu.hidden = false;
+    wrap.classList.add('is-open');
+    btn.setAttribute('aria-expanded', 'true');
+    optionEls()[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function choose(index: number): void {
+    const opt = select.options[index];
+    if (!opt) return;
+    select.selectedIndex = index;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    syncLabel();
+    close();
+    btn.focus();
+  }
+
+  function moveActive(delta: number): void {
+    const count = select.options.length;
+    if (count === 0) return;
+    activeIndex = (activeIndex + delta + count) % count;
+    syncOptions();
+    optionEls()[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (wrap.classList.contains('is-open')) close();
+    else open();
+  });
+
+  menu.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+  });
+
+  menu.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opt = (e.target as HTMLElement).closest('[role="option"]');
+    if (!(opt instanceof HTMLElement)) return;
+    const index = optionEls().indexOf(opt);
+    if (index >= 0) choose(index);
+  });
+
+  menu.addEventListener('pointermove', (e) => {
+    const opt = (e.target as HTMLElement).closest('[role="option"]');
+    if (!(opt instanceof HTMLElement)) return;
+    const index = optionEls().indexOf(opt);
+    if (index < 0 || index === activeIndex) return;
+    activeIndex = index;
+    syncOptions();
+  });
+
+  btn.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!wrap.classList.contains('is-open')) open();
+      moveActive(e.key === 'ArrowDown' ? 1 : -1);
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (wrap.classList.contains('is-open')) {
+        e.preventDefault();
+        e.stopPropagation();
+        choose(activeIndex);
+      }
+      return;
+    }
+    if (e.key === 'Escape' && wrap.classList.contains('is-open')) {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }
+    if (e.key === 'Home' && wrap.classList.contains('is-open')) {
+      e.preventDefault();
+      activeIndex = 0;
+      syncOptions();
+    }
+    if (e.key === 'End' && wrap.classList.contains('is-open')) {
+      e.preventDefault();
+      activeIndex = Math.max(0, select.options.length - 1);
+      syncOptions();
+    }
+  });
+
+  select.addEventListener('change', () => {
+    syncLabel();
+    syncOptions();
+  });
+
+  rebuildMenu();
+}
+
+function setupCustomSelects(): void {
+  enhanceSelect(sortSelect);
+  enhanceSelect(filterSelect);
+}
+
 function handleKeydown(e: KeyboardEvent): void {
   if (
     (e.target instanceof HTMLInputElement && e.target.type !== 'checkbox') ||
@@ -775,11 +1473,13 @@ function handleKeydown(e: KeyboardEvent): void {
     return;
   }
 
-  if ((e.target as HTMLElement).closest?.('.select-wrap')) {
+  if (settingsDialog.open || confirmDialog.open) return;
+  if (document.querySelector('.select-wrap.is-open')) {
+    if (e.key === 'Escape') closeAllSelects();
     return;
   }
-
-  if (settingsDialog.open) return;
+  const selectBtn = e.target instanceof HTMLElement ? e.target.closest('.select-wrap__btn') : null;
+  if (selectBtn) return;
 
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
     e.preventDefault();
@@ -858,65 +1558,16 @@ async function saveSettings(): Promise<void> {
   void loadDownloads();
 }
 
-function closeAllSelects(except?: HTMLElement): void {
-  document.querySelectorAll<HTMLElement>('.select-wrap.is-open').forEach((wrap) => {
-    if (wrap === except) return;
-    wrap.classList.remove('is-open');
-    wrap.querySelector('.select-trigger')?.setAttribute('aria-expanded', 'false');
-    const menu = wrap.querySelector<HTMLElement>('.select-menu');
-    if (menu) menu.hidden = true;
-  });
-}
-
-function setupCustomSelects(): void {
-  document.querySelectorAll<HTMLElement>('.select-wrap').forEach((wrap) => {
-    const trigger = wrap.querySelector<HTMLButtonElement>('.select-trigger');
-    const menu = wrap.querySelector<HTMLElement>('.select-menu');
-    const label = wrap.querySelector<HTMLElement>('.select-trigger__label');
-    if (!trigger || !menu || !label) return;
-
-    const close = (): void => {
-      wrap.classList.remove('is-open');
-      trigger.setAttribute('aria-expanded', 'false');
-      menu.hidden = true;
-    };
-
-    const open = (): void => {
-      closeAllSelects(wrap);
-      wrap.classList.add('is-open');
-      trigger.setAttribute('aria-expanded', 'true');
-      menu.hidden = false;
-    };
-
-    trigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (wrap.classList.contains('is-open')) close();
-      else open();
-    });
-
-    menu.addEventListener('click', (e) => {
-      const option = (e.target as HTMLElement).closest('[role="option"]');
-      if (!option) return;
-      e.stopPropagation();
-      const value = option.getAttribute('data-value') ?? '';
-      menu.querySelectorAll('[role="option"]').forEach((o) => o.setAttribute('aria-selected', 'false'));
-      option.setAttribute('aria-selected', 'true');
-      label.textContent = option.textContent?.trim() ?? '';
-      wrap.dataset.value = value;
-      close();
-      wrap.dispatchEvent(new CustomEvent('select-change', { detail: { value } }));
-    });
-  });
-
-  document.addEventListener('click', () => closeAllSelects());
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeAllSelects();
-  });
-}
-
-function bindListListeners(): void {
+function setupEventListeners(): void {
   if (listenersBound) return;
   listenersBound = true;
+  setupCustomSelects();
+
+  document.addEventListener('pointerdown', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('.select-wrap')) return;
+    closeAllSelects();
+  });
 
   fileListEl.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
@@ -926,6 +1577,7 @@ function bindListListeners(): void {
 
     const btn = target.closest('.action-btn');
     if (btn) {
+      e.preventDefault();
       e.stopPropagation();
       handleAction(btn.getAttribute('data-action')!, index);
       return;
@@ -962,35 +1614,82 @@ function bindListListeners(): void {
     const index = parseInt(itemEl.getAttribute('data-index')!, 10);
     void openFile(index);
   });
-}
 
-function setupEventListeners(): void {
+  grantFolderBtn.addEventListener('click', () => {
+    const intent = dirHandles.length > 0 && folderPermission !== 'granted' ? 'restore' : 'add';
+    void connectDownloadsFolder(intent);
+  });
+  folderAccessBtn.addEventListener('click', () => {
+    void connectDownloadsFolder('add');
+  });
+  folderListEl.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('button[data-kind]');
+    if (!btn) return;
+    const kind = btn.getAttribute('data-kind');
+    const index = Number(btn.getAttribute('data-index'));
+    if ((kind !== 'handle' && kind !== 'session') || Number.isNaN(index)) return;
+    void removeConnectedFolder(kind, index);
+  });
+
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes[DOWNLOADS_FOLDER_LINKED_KEY]) return;
+      void (async () => {
+        try {
+          dirHandles = await loadDirHandles();
+        } catch {
+          dirHandles = [];
+        }
+        try {
+          sessionGroups = await loadSessionFolderGroups();
+        } catch {
+          sessionGroups = [];
+        }
+        await refreshFolderPermission();
+        lastListSnapshot = null;
+        void loadDownloads();
+      })();
+  });
+
   refreshBtn.addEventListener('click', () => {
     hiddenIds.clear();
+    lastListSnapshot = null;
     void loadDownloads();
   });
   settingsBtn.addEventListener('click', () => settingsDialog.showModal());
+  confirmDialog.addEventListener(
+    'click',
+    (e) => {
+      if (Date.now() < confirmIgnoreUntil) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (e.target === confirmDialog) confirmDialog.close('cancel');
+    },
+    true,
+  );
+  confirmDialog.querySelector('form')?.addEventListener('submit', (e) => {
+    if (Date.now() < confirmIgnoreUntil) e.preventDefault();
+  });
   saveSettingsBtn.addEventListener('click', () => {
     void saveSettings();
   });
 
-  setupCustomSelects();
-
-  sortWrap.addEventListener('select-change', ((e: CustomEvent<{ value: string }>) => {
-    currentSort = e.detail.value;
+  sortSelect.addEventListener('change', () => {
+    currentSort = sortSelect.value;
     applyFilterAndSort();
     selectedIndex = -1;
     selectedId = null;
     updateUI();
-  }) as EventListener);
+  });
 
-  filterWrap.addEventListener('select-change', ((e: CustomEvent<{ value: string }>) => {
-    currentFilter = e.detail.value;
+  filterSelect.addEventListener('change', () => {
+    currentFilter = filterSelect.value;
     applyFilterAndSort();
     selectedIndex = -1;
     selectedId = null;
     updateUI();
-  }) as EventListener);
+  });
 
   searchInput.addEventListener('input', () => {
     searchQuery = searchInput.value.trim();
@@ -1018,26 +1717,66 @@ function setupEventListeners(): void {
   });
 
   document.addEventListener('keydown', handleKeydown);
-  bindListListeners();
+
+  browser.downloads.onCreated.addListener((item) => {
+    if (ignoreCompleteIds.has(item.id)) return;
+    scheduleReload();
+  });
 
   browser.downloads.onChanged.addListener((delta) => {
-    if (delta.state?.current !== 'complete') return;
     if (ignoreCompleteIds.has(delta.id)) return;
-    void loadDownloads();
+    if (!isRelevantDownloadDelta(delta)) return;
+    scheduleReload();
   });
 
   browser.downloads.onErased.addListener((id) => {
     hiddenIds.delete(id);
     checkedIds.delete(id);
     allFiles = allFiles.filter((f) => f.id !== id);
+    lastListSnapshot = null;
     applyFilterAndSort();
     restoreSelection();
     updateUI();
   });
+
+  browser.runtime.onMessage.addListener((message) => {
+    if (
+      typeof message === 'object' &&
+      message !== null &&
+      'type' in message &&
+      message.type === DOWNLOADS_CHANGED_MESSAGE
+    ) {
+      scheduleReload();
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    void (async () => {
+      await refreshFolderPermission();
+      scheduleReload();
+    })();
+  });
+
+  window.setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    scheduleReload();
+  }, 4000);
 }
 
 async function init(): Promise<void> {
   await loadSettings();
+  try {
+    dirHandles = await loadDirHandles();
+  } catch {
+    dirHandles = [];
+  }
+  try {
+    sessionGroups = await loadSessionFolderGroups();
+  } catch {
+    sessionGroups = [];
+  }
+  await refreshFolderPermission();
   setupEventListeners();
   await loadDownloads();
 
