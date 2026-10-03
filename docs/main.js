@@ -1,5 +1,5 @@
 /**
- * Documentation Download Organization — thème et navigation mobile
+ * Documentation Nido — thème et navigation mobile
  */
 
 const STORAGE_KEY = 'download-organizer-doc-theme';

@@ -45,13 +45,13 @@ export function syncActionBadge(enabled: boolean): void {
   if (enabled) {
     void browser.action.setBadgeText({ text: '' });
     void browser.action.setTitle({
-      title: 'Download Organization — classement automatique activé',
+      title: 'Nido — classement automatique activé',
     });
   } else {
     void browser.action.setBadgeText({ text: 'off' });
     void browser.action.setBadgeBackgroundColor({ color: '#64748b' });
     void browser.action.setTitle({
-      title: 'Download Organization — classement désactivé (téléchargements normaux)',
+      title: 'Nido — classement désactivé (téléchargements normaux)',
     });
   }
 }

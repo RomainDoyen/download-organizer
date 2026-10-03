@@ -28,7 +28,7 @@ export default defineConfig({
     firefoxDataCollection: true,
   },
   manifest: ({ browser }) => ({
-    name: 'Download Organization',
+    name: 'Nido',
     description: 'Classez automatiquement vos téléchargements par type de fichier.',
     permissions:
       browser === 'firefox'
@@ -43,7 +43,7 @@ export default defineConfig({
       128: 'logo.png',
     },
     action: {
-      default_title: 'Download Organization',
+      default_title: 'Nido',
       default_icon: {
         16: 'logo.png',
         32: 'logo.png',

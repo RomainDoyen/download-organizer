@@ -1,6 +1,6 @@
 {
   "name": "download-organizer",
-  "description": "Extension navigateur — classement des téléchargements par type",
+  "description": "Nido — extension navigateur pour classer les téléchargements par type",
   "private": true,
   "version": "1.0.0",
   "type": "module",

@@ -1569,6 +1569,21 @@ function setupEventListeners(): void {
     closeAllSelects();
   });
 
+  fileListEl.addEventListener('change', (e) => {
+    const input = e.target;
+    if (!(input instanceof HTMLInputElement) || !input.classList.contains('file-check')) return;
+    const itemEl = input.closest('.file-item');
+    if (!itemEl) return;
+    const index = parseInt(itemEl.getAttribute('data-index')!, 10);
+    const file = filteredFiles[index];
+    if (!file) return;
+    if (input.checked) checkedIds.add(file.id);
+    else checkedIds.delete(file.id);
+    lastCheckedIndex = index;
+    itemEl.classList.toggle('file-item--checked', input.checked);
+    updateSelectionBar();
+  });
+
   fileListEl.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     const itemEl = target.closest('.file-item');
@@ -1585,9 +1600,15 @@ function setupEventListeners(): void {
 
     const check = target.closest('.file-check-wrap');
     if (check) {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleChecked(index, e.shiftKey);
+      // Chrome coche la case avant le click, puis la décoche si preventDefault
+      // a été appelé. Le compteur resterait à « 1 sélectionné » avec une case vide.
+      if (e.shiftKey) {
+        e.preventDefault();
+        toggleChecked(index, true);
+        selectItem(index);
+        setTimeout(() => syncCheckboxes(), 0);
+        return;
+      }
       selectItem(index);
       return;
     }

@@ -1,9 +1,9 @@
-# Download Organization
+# Nido
 
 <p align="center">
   <img
     src="./public/logo.png"
-    alt="Logo Download Organization"
+    alt="Logo Nido"
     width="128"
     height="128"
     style="border-radius: 28px;"
