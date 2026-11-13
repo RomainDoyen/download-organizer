@@ -33,11 +33,14 @@
       <section class="folder-banner" id="folder-banner">
         <p class="folder-banner__title">Dossiers locaux</p>
         <p class="folder-banner__text" id="folder-banner-text">
-          Ajoutez Téléchargements, le Bureau ou n’importe quel autre dossier. Vous pouvez en connecter plusieurs : racine et sous-dossiers de chacun sont listés.
+          Le navigateur refuse le dossier Téléchargements, le Bureau, Documents et le dossier personnel (« fichiers système »). Pour un accès permanent, ouvrez le dossier puis validez un sous-dossier.
         </p>
         <p class="folder-banner__hint" id="folder-banner-hint" hidden></p>
         <button type="button" class="btn btn--primary folder-banner__btn" id="grant-folder-btn">
-          Ajouter un dossier
+          Ajouter un sous-dossier
+        </button>
+        <button type="button" class="btn btn--secondary folder-banner__btn" id="read-folder-btn">
+          Lire un dossier entier
         </button>
       </section>
 
@@ -126,10 +129,11 @@
           <fieldset>
             <legend>Dossiers connectés</legend>
             <p class="field-hint" id="folder-access-status">
-              Ajoutez autant de dossiers que nécessaire. Chacun est listé avec sa racine et ses sous-dossiers.
+              Accès permanent : validez un sous-dossier. Téléchargements, le Bureau, Documents et le dossier personnel sont refusés par le navigateur.
             </p>
             <ul class="folder-list" id="folder-list" hidden></ul>
-            <button type="button" class="btn btn--secondary" id="folder-access-btn">Ajouter un dossier</button>
+            <button type="button" class="btn btn--secondary" id="folder-access-btn">Ajouter un sous-dossier</button>
+            <button type="button" class="btn btn--secondary" id="folder-read-btn">Lire un dossier entier</button>
           </fieldset>
           <fieldset>
             <legend>Dossier d'archivage</legend>

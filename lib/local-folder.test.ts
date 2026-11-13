@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
   chromePathMatchesRelative,
+  chromiumDirectoryBlockHint,
+  classicFolderReadHint,
   folderRecordKey,
   fsStableId,
   mergeUncoveredFsItems,
@@ -64,6 +66,20 @@ describe('fsStableId', () => {
     expect(fsStableId(folderRecordKey('Téléchargements', 'a.jpg'))).not.toBe(
       fsStableId(folderRecordKey('Bureau', 'a.jpg')),
     );
+  });
+});
+
+describe('chromiumDirectoryBlockHint', () => {
+  test('explique le refus du dossier Téléchargements', () => {
+    const hint = chromiumDirectoryBlockHint();
+    expect(hint).toMatch(/fichiers système/);
+    expect(hint).toMatch(/sous-dossier/);
+    expect(hint).toMatch(/Téléchargements/);
+  });
+
+  test('propose la lecture classique comme contournement', () => {
+    expect(classicFolderReadHint()).toMatch(/lecture seule/);
+    expect(classicFolderReadHint()).toMatch(/Téléchargements/);
   });
 });
 

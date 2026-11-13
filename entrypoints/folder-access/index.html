@@ -9,12 +9,12 @@
     <main class="card">
       <img class="logo" src="logo.png" width="40" height="40" alt="" />
       <h1>Ajouter un dossier</h1>
-      <p>
-        Choisissez un dossier (souvent <strong>Téléchargements</strong>). Vous pouvez en
-        ajouter d’autres ensuite : Bureau, Documents, un disque externe… Chaque racine
-        et ses sous-dossiers sont listés.
+      <p id="intro">
+        Pour un accès permanent, ouvrez le dossier puis validez un <strong>sous-dossier</strong>.
+        Chrome refuse Téléchargements, le Bureau, Documents et le dossier personnel.
       </p>
-      <button type="button" class="cta" id="pick-folder">Ajouter un dossier</button>
+      <button type="button" class="cta" id="pick-folder">Ajouter un sous-dossier</button>
+      <button type="button" class="cta cta--secondary" id="pick-folder-classic">Lire un dossier entier</button>
       <p class="status" id="status" role="status"></p>
       <p class="help" id="browser-help" hidden></p>
     </main>

@@ -19,7 +19,9 @@ import {
 import {
   archiveLocalFile,
   canMutateLocalFile,
+  chromiumDirectoryBlockHint,
   chromiumFolderFlagHint,
+  classicFolderReadHint,
   folderNameFromFiles,
   folderRecordKey,
   getLocalFileBlob,
@@ -153,6 +155,8 @@ const folderBanner = document.getElementById('folder-banner')!;
 const folderBannerText = document.getElementById('folder-banner-text')!;
 const folderBannerHint = document.getElementById('folder-banner-hint')!;
 const grantFolderBtn = document.getElementById('grant-folder-btn') as HTMLButtonElement;
+const readFolderBtn = document.getElementById('read-folder-btn') as HTMLButtonElement;
+const readFolderSettingsBtn = document.getElementById('folder-read-btn') as HTMLButtonElement;
 const folderAccessStatus = document.getElementById('folder-access-status')!;
 const folderAccessBtn = document.getElementById('folder-access-btn') as HTMLButtonElement;
 const folderListEl = document.getElementById('folder-list')!;
@@ -340,19 +344,21 @@ function renderConnectedFolders(): void {
 
 function updateFolderAccessUi(): void {
   folderAccessBtn.hidden = false;
-  folderAccessBtn.textContent = 'Ajouter un dossier';
+  folderAccessBtn.textContent = 'Ajouter un sous-dossier';
   const count = connectedFolderCount();
   const hasPersistent = dirHandles.length > 0;
   const hasSession = sessionGroups.length > 0;
   const ready = (folderPermission === 'granted' && hasPersistent) || hasSession;
   renderConnectedFolders();
 
-  if (needsChromiumFolderFlag()) {
-    folderBannerHint.hidden = false;
-    folderBannerHint.textContent = chromiumFolderFlagHint();
-  } else {
-    folderBannerHint.hidden = true;
-  }
+  const canReadWholeFolder = isFolderAccessSupported() && isDirectoryInputSupported();
+  readFolderBtn.hidden = !canReadWholeFolder;
+  readFolderSettingsBtn.hidden = !canReadWholeFolder;
+  const hints: string[] = [];
+  if (canReadWholeFolder) hints.push(classicFolderReadHint());
+  if (needsChromiumFolderFlag()) hints.push(chromiumFolderFlagHint());
+  folderBannerHint.hidden = hints.length === 0;
+  folderBannerHint.textContent = hints.join(' ');
 
   if (ready) {
     folderBanner.hidden = true;
@@ -365,7 +371,11 @@ function updateFolderAccessUi(): void {
   }
 
   folderBanner.hidden = false;
-  grantFolderBtn.textContent = hasPersistent ? 'Rétablir l’accès' : 'Ajouter un dossier';
+  grantFolderBtn.textContent = hasPersistent
+    ? 'Rétablir l’accès'
+    : isFolderAccessSupported()
+      ? 'Ajouter un sous-dossier'
+      : 'Ajouter un dossier';
 
   if (hasPersistent && folderPermission !== 'granted') {
     folderBannerText.textContent =
@@ -374,10 +384,12 @@ function updateFolderAccessUi(): void {
     return;
   }
 
-  folderBannerText.textContent =
-    'Ajoutez Téléchargements, le Bureau ou n’importe quel autre dossier. Vous pouvez en connecter plusieurs : racine et sous-dossiers de chacun sont listés.';
-  folderAccessStatus.textContent =
-    'Aucun dossier connecté. Sans connexion, seuls les téléchargements du navigateur sont listés.';
+  folderBannerText.textContent = isFolderAccessSupported()
+    ? chromiumDirectoryBlockHint()
+    : 'Ajoutez un ou plusieurs dossiers. Chacun est listé avec sa racine et ses sous-dossiers.';
+  folderAccessStatus.textContent = isFolderAccessSupported()
+    ? 'Aucun dossier connecté. Sans connexion, seuls les téléchargements du navigateur sont listés. Pour un accès permanent, validez un sous-dossier.'
+    : 'Aucun dossier connecté. Sans connexion, seuls les téléchargements du navigateur sont listés.';
 }
 
 async function openFolderAccessTab(): Promise<void> {
@@ -476,7 +488,12 @@ async function connectDownloadsFolder(intent: 'add' | 'restore' = 'add'): Promis
         void loadDownloads();
         return;
       } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          footerStatusEl.textContent =
+            'Erreur : validez un sous-dossier. Téléchargements, le Bureau, Documents et le dossier personnel sont refusés.';
+          clearStatusAfter(7000);
+          return;
+        }
         console.warn('[organizer] Sélecteur avancé indisponible, repli fichier', err);
       }
     }
@@ -1643,6 +1660,15 @@ function setupEventListeners(): void {
   folderAccessBtn.addEventListener('click', () => {
     void connectDownloadsFolder('add');
   });
+  const onReadFolder = (): void => {
+    void connectViaDirectoryInput().then((ok) => {
+      if (ok) return;
+      footerStatusEl.textContent = 'Dossier non choisi.';
+      clearStatusAfter(4000);
+    });
+  };
+  readFolderBtn.addEventListener('click', onReadFolder);
+  readFolderSettingsBtn.addEventListener('click', onReadFolder);
   folderListEl.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('button[data-kind]');
     if (!btn) return;

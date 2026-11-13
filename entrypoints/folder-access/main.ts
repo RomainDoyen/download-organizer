@@ -1,7 +1,9 @@
 import './style.css';
 import { browser } from 'wxt/browser';
 import {
+  chromiumDirectoryBlockHint,
   chromiumFolderFlagHint,
+  classicFolderReadHint,
   folderNameFromFiles,
   isDirectoryInputSupported,
   isFolderAccessSupported,
@@ -21,12 +23,23 @@ import {
 } from '@/lib/folder-handle-store';
 
 const pickBtn = document.getElementById('pick-folder') as HTMLButtonElement;
+const classicBtn = document.getElementById('pick-folder-classic') as HTMLButtonElement;
+const introEl = document.getElementById('intro')!;
 const statusEl = document.getElementById('status')!;
 const helpEl = document.getElementById('browser-help')!;
 
-if (needsChromiumFolderFlag()) {
+const helpParts: string[] = [];
+if (isFolderAccessSupported()) helpParts.push(classicFolderReadHint());
+if (needsChromiumFolderFlag()) helpParts.push(chromiumFolderFlagHint());
+if (!isFolderAccessSupported()) {
+  introEl.innerHTML =
+    'Choisissez un dossier, par exemple <strong>Téléchargements</strong>. Vous pouvez en ajouter d’autres ensuite.';
+  pickBtn.textContent = 'Ajouter un dossier';
+  classicBtn.hidden = true;
+}
+if (helpParts.length > 0) {
   helpEl.hidden = false;
-  helpEl.textContent = chromiumFolderFlagHint();
+  helpEl.textContent = helpParts.join(' ');
 }
 
 async function existingFolderNames(): Promise<string[]> {
@@ -36,6 +49,22 @@ async function existingFolderNames(): Promise<string[]> {
 
 async function markLinked(): Promise<void> {
   await browser.storage.local.set({ [DOWNLOADS_FOLDER_LINKED_KEY]: Date.now() });
+}
+
+async function saveClassicFolder(files: File[], button: HTMLButtonElement, nextLabel: string): Promise<void> {
+  if (files.length === 0) {
+    statusEl.textContent = 'Aucun fichier reçu. Avec ce sélecteur, Téléchargements est accepté.';
+    return;
+  }
+  try {
+    const name = uniqueDisplayName(folderNameFromFiles(files), await existingFolderNames());
+    const groups = await addSessionFolderGroup({ name, files });
+    await markLinked();
+    statusEl.textContent = `« ${name} » est lu jusqu’à la fermeture du navigateur (${files.length} fichiers, ${groups.length} dossier${groups.length > 1 ? 's' : ''}).`;
+    button.textContent = nextLabel;
+  } catch {
+    statusEl.textContent = 'Dossier trop volumineux à mémoriser. Réessayez depuis le panneau latéral.';
+  }
 }
 
 async function pickFolder(): Promise<void> {
@@ -62,7 +91,7 @@ async function pickFolder(): Promise<void> {
       return;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        statusEl.textContent = 'Aucun dossier choisi. Cliquez à nouveau pour en ajouter un.';
+        statusEl.textContent = chromiumDirectoryBlockHint();
         return;
       }
       console.warn('[organizer] Sélecteur avancé indisponible', err);
@@ -74,22 +103,13 @@ async function pickFolder(): Promise<void> {
     return;
   }
 
-  const files = await pickDownloadsFolderViaInput();
-  if (files.length === 0) {
-    statusEl.textContent = 'Aucun fichier reçu. Choisissez un dossier (souvent Téléchargements).';
-    return;
-  }
-  try {
-    const name = uniqueDisplayName(folderNameFromFiles(files), await existingFolderNames());
-    const groups = await addSessionFolderGroup({ name, files });
-    await markLinked();
-    statusEl.textContent = `« ${name} » a été ajouté (${files.length} fichiers, ${groups.length} dossier${groups.length > 1 ? 's' : ''}). Vous pouvez en connecter d’autres ou fermer cet onglet.`;
-    pickBtn.textContent = 'Ajouter un autre dossier';
-  } catch {
-    statusEl.textContent = 'Dossier trop volumineux à mémoriser. Utilisez le bouton dans le panneau latéral.';
-  }
+  await saveClassicFolder(await pickDownloadsFolderViaInput(), pickBtn, 'Ajouter un autre dossier');
 }
 
 pickBtn.addEventListener('click', () => {
   void pickFolder();
+});
+
+classicBtn.addEventListener('click', () => {
+  void pickDownloadsFolderViaInput().then((files) => saveClassicFolder(files, classicBtn, 'Lire un autre dossier'));
 });

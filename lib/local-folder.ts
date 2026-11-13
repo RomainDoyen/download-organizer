@@ -159,6 +159,20 @@ export function looksLikeBrave(): boolean {
   return /Brave/i.test(navigator.userAgent);
 }
 
+/**
+ * Chrome, Edge et les autres Chromium refusent showDirectoryPicker sur le dossier
+ * Téléchargements, le Bureau, Documents et le dossier personnel. Le dialogue
+ * « fichiers système » est celui du navigateur : un sous-dossier reste autorisé.
+ * Le sélecteur classique (webkitdirectory) n’a pas cette interdiction.
+ */
+export function chromiumDirectoryBlockHint(): string {
+  return 'Le navigateur refuse le dossier Téléchargements, le Bureau, Documents et le dossier personnel (« fichiers système »). Pour un accès permanent, ouvrez le dossier puis validez un sous-dossier.';
+}
+
+export function classicFolderReadHint(): string {
+  return '« Lire un dossier entier » accepte Téléchargements, en lecture seule, jusqu’à la fermeture du navigateur.';
+}
+
 /** Chromium sans showDirectoryPicker : souvent Brave (flag off) ou un fork verrouillé. */
 export function needsChromiumFolderFlag(): boolean {
   if (isFolderAccessSupported()) return false;
